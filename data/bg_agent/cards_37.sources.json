@@ -1,0 +1,16 @@
+{
+  "name": "Hearthstone Battlegrounds client card definitions",
+  "repository": "https://github.com/HearthSim/hsdata",
+  "revision": "e456d49d2147358dec6764cffb963c8e8d748d12",
+  "file": "CardDefs.Bacon.xml",
+  "url": "https://raw.githubusercontent.com/HearthSim/hsdata/e456d49d2147358dec6764cffb963c8e8d748d12/CardDefs.Bacon.xml",
+  "patch": "37.0.0.255130",
+  "accessed_at": "2026-10-20T05:55:00Z",
+  "xml_sha256": "981d9dde0c0de3651013c23c930f89851a365dd8e60b907591a717de4f230a33",
+  "generated_sha256": "d62b6a06a8aa3de05cf1cc51f960f6ea21344e6551c025e60c347ca91b1c761b",
+  "notes": [
+    "HearthSim extraction is a client-data mirror, not an official server rules API.",
+    "The generated compact knowledge file contains 303 pool minions and 76 pool spells.",
+    "Game content remains Blizzard property; no redistribution license is inferred."
+  ]
+}

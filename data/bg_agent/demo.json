@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "game_id": "offline-demo-not-a-real-match",
+  "revision": 1,
+  "patch": "37.0-client / 36.6.3-bg-reference",
+  "source": "fixture",
+  "phase": "recruit",
+  "rules_profile": "vanilla-recruit-v1",
+  "economy_confirmed": true,
+  "vanilla_transitions_confirmed": true,
+  "turn": 3,
+  "tier": 2,
+  "gold": 5,
+  "health": 30,
+  "armor": 5,
+  "refresh_cost": 1,
+  "upgrade_cost": 6,
+  "frozen": false,
+  "board": [
+    {"entity_id": "board-1", "card_id": "DEMO_A", "name": "示例随从A（非实服卡牌）", "kind": "minion", "attack": 2, "health": 3, "currency": "gold", "sell_value": 1, "effect": "vanilla", "races": ["MECH"]}
+  ],
+  "hand": [],
+  "shop": [
+    {"entity_id": "shop-1", "card_id": "DEMO_B", "name": "示例随从B（非实服卡牌）", "kind": "minion", "attack": 4, "health": 4, "currency": "gold", "buy_cost": 3, "sell_value": 1, "effect": "vanilla", "races": ["MECH"]},
+    {"entity_id": "shop-2", "card_id": "DEMO_C", "name": "示例随从C（非实服卡牌）", "kind": "minion", "attack": 1, "health": 2, "currency": "gold", "buy_cost": 3, "sell_value": 1, "effect": "vanilla", "races": ["BEAST"]}
+  ],
+  "choices": []
+}

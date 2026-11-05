@@ -1,0 +1,19 @@
+{
+  "status": "approved",
+  "reviewer": "WorkBuddy(队长授权代理验收 2026-11-06)",
+  "checks": {
+    "continuous_motion": true,
+    "no_ghosts": true,
+    "anatomy": true,
+    "identity": true,
+    "loop_seam": true
+  },
+  "user_approval": {
+    "by": "user",
+    "quote": "队长指示接入 dz3 批 12 条动作素材（\"接\"）"
+  },
+  "loop_tail_diff": 9.4,
+  "basis": " dz3批·首尾差9.4经目检=进度环特效相位，身体衔接良好（见_质检报告复核补记）",
+  "source": "G:/dz3 绿幕源片 · tools/make_action_pack.py 管线",
+  "frames_sha256": "387804f4c266d221ddb20c67a6ae06106593356edd37cc778ef678af33d60447"
+}

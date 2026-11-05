@@ -1,0 +1,6 @@
+{
+  "status": "rejected",
+  "reviewer": "reported-artifact-2026-11-02",
+  "reason": "前版插帧存在残影，禁止回退到这一候选。",
+  "checks": {"identity": false, "continuous_motion": false, "no_ghosts": false, "anatomy": false, "loop_seam": false}
+}

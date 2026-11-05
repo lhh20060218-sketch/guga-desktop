@@ -1,0 +1,20 @@
+{
+  "status": "approved",
+  "reviewer": "WorkBuddy(队长授权代理验收 2026-11-06)",
+  "checks": {
+    "continuous_motion": true,
+    "no_ghosts": true,
+    "anatomy": true,
+    "identity": true,
+    "entry_exit_transition": true
+  },
+  "user_approval": {
+    "by": "user",
+    "quote": "队长指示接入 dz3 批 12 条动作素材（\"接\"）"
+  },
+  "loop_tail_diff": null,
+  "basis": " dz3批·一次性出错挠头",
+  "source": "G:/dz3 绿幕源片 · tools/make_action_pack.py 管线",
+  "frames_sha256": "cbc70531a63d9215a276eabc760e13b326725bdae8aff343c953849a27330feb",
+  "playback": "once"
+}

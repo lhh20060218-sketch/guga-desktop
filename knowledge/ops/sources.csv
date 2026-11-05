@@ -1,0 +1,108 @@
+文件名,来源,可信度
+doubao-ask,https://www.doubao.com/chat,高（官网实测文案）
+doubao-ask,https://www.doubao.com/work/docs/zh-cn/articles/869365200695-task-quick-start,高（官方帮助中心）
+doubao-ask,https://www.doubao.com/work/docs/zh-cn/articles/628589138051-chats,高（官方帮助中心）
+doubao-followup,https://www.doubao.com/work/docs/zh-cn/articles/628589138051-chats,高（官方帮助中心）
+doubao-followup,https://labs.epubit.com/bookDetails?id=UB8e93591cde82f,低（第三方出版物，快捷键待真机核对）
+doubao-copy,https://www.doubao.com/work/docs/zh-cn/articles/628589138051-chats,高（官方帮助中心）
+doubao-copy,官方公开帮助中心未见导出入口（反向确认无导出功能，走复制+粘贴）,高（基于官方资料）
+copilot-ask,https://www.chinanews.com/m/cj/2023/02-08/9949559.shtml,中（中国新闻网转载）
+copilot-ask,https://k.sina.cn/article_1798777247_6b37299f01902rvv3.html,中（新浪科技）
+copilot-ask,https://juejin.cn/post/7310156414252924928,中（掘金）
+copilot-ask,https://support.microsoft.com/en-us/copilot,高（官方帮助中心）
+copilot-followup,https://support.microsoft.com/en-us/copilot,高（官方帮助中心）
+copilot-followup,https://juejin.cn/post/7229583093341192250,中（掘金）
+copilot-copy-export,https://support.microsoft.com/en-us/copilot,高（官方帮助中心未列导出功能，如实声明走复制粘贴）
+copilot-copy-export,https://new.qq.com/rain/a/20250805A078SH00,中（腾讯新闻）
+copilot-copy-export,无可靠官方来源（复制/分享按钮文字）,低（待真机核对）
+kimi-ask,https://www.kimi.ai/zh-hans/help/features/search,高（官方帮助中心）
+kimi-ask,https://www.kimi.ai/help/getting-started/quick-phrases,高（官方帮助中心）
+kimi-ask,https://www.kimi.com/help/others/chat-issues,高（官方帮助中心）
+kimi-ask,https://www.kimi.com/user/agreement/userPrivacy?version=v2,中（隐私政策）
+kimi-followup,https://www.kimi.com/help/others/chat-issues,高（官方帮助中心）
+kimi-export,https://www.kimi.com/en/help/deep-research/deep-research-faq,高（官方帮助中心）
+kimi-export,https://www.kimi.com/help/others/chat-issues,高（官方帮助中心）
+kimi-export,https://www.dssxz.com/tools/kimi-to-image,低-中（第三方）
+deepseek-ask,https://api-docs.deepseek.com/zh-cn/news/news250120/,高（官方公告）
+deepseek-ask,https://api-docs.deepseek.com/news/news250821/,高（官方公告）
+deepseek-ask,https://gitcode.csdn.net/69d5a7be0a2f6a37c59db050.html,中（第三方实测配置，待真机核对）
+deepseek-ask,https://soft.china.com/article/2272893.html,中（媒体转述）
+deepseek-followup,https://static.deepseek.com/faq/index.html?lang=zh,高（官方FAQ）
+deepseek-followup,https://api-docs.deepseek.com/zh-cn/news/news250120/,高（官方公告）
+deepseek-export,https://bigolab.com/guides/2275-deepseek-export-delete-history,中高（二手整理，已交叉核对并标待真机核对）
+deepseek-export,https://13115299.s21i.faiusr.com/61/1/ABUIABA9GAAg0Mj2vQYooKaUvQI.pdf,中低（第三方教程）
+zhipu-ask,本机截图 knowledge/截图/智谱清言-1.png（占位符「和我聊聊天吧」、新对话、GLM-5.3-Flash 标签）,高（截图直读）
+zhipu-ask,https://chatglm.cn/legal/privacyPolicySingle（登录方式）,高（官方隐私政策）
+zhipu-ask,https://jsfzzx.sdju.edu.cn/_upload/article/files/5f/15/21d1eb6345c78bcd0d3c1c5ba358/1ba157c2-e000-45ad-bc91-8c898ddbf2e2.pdf（复制/分享按钮旁证）,中（高校培训资料）
+zhipu-ask,本机 apps.csv 真机核对结果（exe 路径/版本 2.0.7）,高（本机事实）
+zhipu-followup,本机截图 knowledge/截图/智谱清言-1.png,高（截图直读）
+zhipu-followup,https://www.php.cn/zt/274246-2.html（同会话追问）,中（第三方教程）
+zhipu-followup,本机 apps.csv 真机核对结果,高（本机事实）
+zhipu-export,https://jsfzzx.sdju.edu.cn/_upload/article/files/5f/15/21d1eb6345c78bcd0d3c1c5ba358/1ba157c2-e000-45ad-bc91-8c898ddbf2e2.pdf（对话右下角分享和复制按钮）,中（高校培训资料）
+zhipu-export,https://m.php.cn/faq/2981154.html（App端无批量导出）,中（第三方教程）
+zhipu-export,本机 apps.csv 真机核对结果,高（本机事实）
+wenxin-ask,本机截图 knowledge/截图/文心一言-1.png（左侧栏/登录/发送按钮）,高（本机真机截图）
+wenxin-ask,https://m.epubit.com/bookDetails?id=UB8e84721ede93f（《文心一言实战精粹》）,中高（正式出版物）
+wenxin-ask,https://www.readaitime.com/tools/ernie-bot（yiyan 跳转 wenxin.baidu.com）,高（实测记录）
+wenxin-followup,https://jsfzzx.sdju.edu.cn/_upload/article/files/5f/15/21d1eb6345c78bcd0d3c1c5ba358/1ba157c2-e000-45ad-bc91-8c898ddbf2e2.pdf（多轮追问/对话命名）,中高（高校教师中心发布）
+wenxin-followup,本机截图 knowledge/截图/文心一言-1.png,高（本机真机截图）
+wenxin-export,https://jsfzzx.sdju.edu.cn/_upload/article/files/5f/15/21d1eb6345c78bcd0d3c1c5ba358/1ba157c2-e000-45ad-bc91-8c898ddbf2e2.pdf（复制/复制为Markdown/分享多选）,中高
+wenxin-export,https://view.inews.qq.com/a/20251216A05DKE00（分享链接公开可访问实测）,高（媒体实测）
+wenxin-export,本机截图 knowledge/截图/文心一言-1.png,高（本机真机截图）
+tongyi-ask,https://labs.epubit.com/bookDetails?id=UB943385592af3d（《千问AI高效指南》：输入框/发送/停止回答/按钮行）,中高（正式出版图书）
+tongyi-ask,https://help.aliyun.com/zh/account/how-to-log-in-to-an-alibaba-cloud-account（登录方式）,高（阿里云官方文档）
+tongyi-ask,本机截图 knowledge/截图/通义千问-1.png,高（本机实测）
+tongyi-followup,https://labs.epubit.com/bookDetails?id=UB943385592af3d（1.3.3 多轮对话）,中高
+tongyi-followup,https://help.aliyun.com/zh/model-studio/multi-round-conversation（多轮对话概念旁证）,高（官方，概念旁证）
+tongyi-export,https://labs.epubit.com/bookDetails?id=UB943385592af3d（复制/分享此对话/导出会话）,中高
+tongyi-export,https://help.aliyun.com/zh/qwenwork/enterprise-ultimate-personalization-composer-copy（企业版旁证）,中（企业版文档）
+yuanbao-ask,https://privacy.qq.com/document/preview/eb9be56572ab4886b6ca124e72abf413?app_lang=zh-CN（§1.1 登录、§1.2.1 对话）,高（官方隐私政策）
+yuanbao-ask,本机截图 knowledge/截图/腾讯元宝-1.png（新建对话/发送消息/上箭头发送/安装弹窗）,高（本机真机界面）
+yuanbao-followup,https://browser.qq.com/mobile/article_detail/3/5/1314（连续追问官方说明）,中（官方QQ浏览器元宝助手文档）
+yuanbao-followup,本机截图 knowledge/截图/腾讯元宝-1.png（左侧最近会话列表）,高
+yuanbao-copy,https://privacy.qq.com/document/preview/eb9be56572ab4886b6ca124e72abf413?app_lang=zh-CN（§6.9.2 复制、§1.2.9 点赞/点踩/复制/分享、§5.3 分享）,高（官方）
+yuanbao-copy,http://www.news.cn/tech/20250225/d8c590fe7f984a4cb5bf0d75fb18542e/c.html（长图/节选图/分享卡片，App端）,中（新华网）
+cursor-ask,https://cursor.com/docs/reference/keyboard-shortcuts（Ctrl+L/Enter/Ctrl+Shift+Backspace）,高（官方文档）
+cursor-ask,https://forum.cursor.com/t/inputing-simple-questions/158522（Chat面板与输入框）,中高（官方论坛官方人员回复）
+cursor-followup,https://cursor.com/docs/reference/keyboard-shortcuts（Ctrl+N/Ctrl+[/Ctrl+]）,高（官方文档）
+cursor-followup,https://www.aiwire.ai/lessons/chat-interface（会话历史可自然追问）,中（第三方教程）
+cursor-export,https://docs.cursor.com/chat/apply（Accept/Reject 按钮、diff 预览）,高（官方文档）
+cursor-export,https://cursor.com/docs/reference/keyboard-shortcuts（Ctrl+Enter=Accept all）,高（官方文档）
+cursor-export,https://forum.cursor.com/t/cursor-chat-apply-code-change-button-disappeared/162504（Ask模式仅保留Copy）,中高（官方论坛官方人员确认）
+cursor-export,https://startdebugging.net/2026/05/fix-cursor-apply-button-does-nothing-on-large-diff/（大diff排障）,中（第三方实测博客）
+wps-ask,https://www.wps.cn/article/wps-ai-ai-ru-kou-2026-uthfnCzC.html（WPS AI选项卡/双击Ctrl唤起/需登录）,高（WPS官网官方文章）
+wps-ask,https://home.wps.cn/topic/2498?chan=aiwps01（AI帮我写/AI伴写/AI帮我改菜单名）,高（WPS官方社区教程）
+wps-ask,https://plus.wps.cn/blog/p106845.html（免费版范围/AI文档问答需商业协作版）,高（WPS 365 官方博客）
+wps-followup,https://www.wps.cn/article/wps-ai-ai-ru-kou-2026-uthfnCzC.html,高（官方）
+wps-followup,https://home.wps.cn/topic/2498?chan=aiwps01（扩写/缩写/换风格）,高（官方社区）
+wps-followup,https://plus.wps.cn/blog/p106859.html（额度分档）,高（官方版本对比）
+wps-export,https://home.wps.cn/topic/2498?chan=aiwps01（AI伴写Tab采纳）,高（官方社区）
+wps-export,无官方页面公开插入/复制按钮确切文字,中（已标待真机核对）
+chatgpt-ask,https://help.openai.com/en/articles/（官方FAQ：message box 输入发送、New chat 重开）,高（官方）
+chatgpt-ask,https://help.openai.com/en/articles/6825453（登录：Google/Microsoft/Apple/邮箱）,高（官方）
+chatgpt-followup,https://help.openai.com/zh-hans-cn/articles/6825453-chatgpt-版本说明（悬停铅笔编辑/重试图标）,高（官方）
+chatgpt-followup,https://help.openai.com/en/articles/（model picker 档位）,高（官方）
+chatgpt-export,https://help.openai.com/en/articles/（官方分享：Share 后 Create link/Copy link）,高（官方）
+chatgpt-export,https://help.openai.com/zh-hans-cn/articles/6825453-chatgpt-版本说明（Ctrl+Shift+; 复制最后一个代码块）,高（官方）
+chatgpt-ask/followup/export,输入框占位文案、发送按钮图标、单条回答复制按钮、会话标题命名规则、picker 位置,待真机核对
+claude-ask,https://support.claude.com/en/articles/8114491-get-started-with-claude,高（官方）
+claude-ask,https://support.claude.com/en/articles/13189465-logging-in-to-your-claude-account,高（官方）
+claude-ask,https://support.claude.com/en/articles/8664678-change-the-model-effort-and-thinking-settings,高（官方）
+claude-followup,https://support.claude.com/en/articles/8114491-get-started-with-claude,高（官方）
+claude-followup,https://support.claude.com/en/articles/8664678-change-the-model-effort-and-thinking-settings,高（官方）
+claude-export,https://support.claude.com/en/articles/10593882-share-and-unshare-chats,高（官方）
+claude-export,https://support.claude.com/en/articles/16762496-share-a-chat-with-specific-people,高（官方）
+claude-export,悬停复制图标=复制单条为 Markdown（freecodecamp/writage 第三方一致）,中
+claude-ask/followup/export,输入框占位符、submit 图标、中断按钮、会话删除菜单、复制图标反馈、分享弹窗开关原文,待真机核对
+gemini-ask,https://gemini.google.com,高（官方入口）
+gemini-ask,https://ai.google.dev/gemini-api/docs/available-regions?hl=zh-cn（地区限制）,高（官方）
+gemini-ask,https://discuss.ai.google.dev/t/a-request-for-help-from-chinese-mainland/178323（地区限制，Google员工回复）,高（官方论坛）
+gemini-ask,https://its.umich.edu/communication/collaboration/google/update/delete-and-start-temporary-chats-google-gemini（界面元素）,中（大学IT实测文档）
+gemini-ask,https://ai.google.dev/gemini-api/docs/models?hl=zh-cn（模型档位）,中
+gemini-followup,https://gemini.google.com,高（官方入口）
+gemini-followup,https://its.umich.edu/communication/collaboration/google/update/delete-and-start-temporary-chats-google-gemini,中
+gemini-followup,https://www.itc.keio.ac.jp/en/news_20260715_gemini_changes.html,中
+gemini-export,https://docs.cloud.google.cn/gemini/enterprise/docs/share-conversations（Share→Create link）,高（官方Cloud文档）
+gemini-export,https://gemini.google.com,高（官方入口）
+gemini-export,https://aitoolsguidebook.com/en/articles/gemini-export-share-issue/,中
+gemini-ask/followup/export,输入框占位符、模型档位名、Copy 图标样式、toast 文案、Workspace 分享开关,待真机核对

@@ -1,0 +1,3006 @@
+{
+  "season": 19,
+  "fetched_at": 1786337791.4072118,
+  "players": {
+    "小神童": 12027,
+    "彩虹丨涵雪": 11663,
+    "大嘟丨火车王": 11315,
+    "园城寺怜": 11184,
+    "无名之辈": 11137,
+    "在乎": 11107,
+    "jeef": 11060,
+    "把把金铜须": 10925,
+    "似戏": 10807,
+    "斗鱼激情速八": 10760,
+    "抖音丨梦境彼方": 10741,
+    "滑稽的潜行者": 10666,
+    "Chaos": 8191,
+    "刀锋上的荣耀": 10572,
+    "风的二次救赎": 10522,
+    "温州吴彦祖": 10488,
+    "呜呜呜呜呜呜": 10485,
+    "JashinChan": 10443,
+    "夕尘残枫": 10391,
+    "抖音安德罗妮学徒": 10386,
+    "荀彧丨九筱": 10375,
+    "抖音丨有局丨小狼": 10367,
+    "彩虹丨韶想": 10328,
+    "尘落": 10316,
+    "大安第一菜": 10038,
+    "DouyinBruise": 10232,
+    "哔哩哔哩丶暗影": 10229,
+    "大嘟丨桑落": 10184,
+    "CoolGuy": 10172,
+    "金铜须没霸符": 10134,
+    "大神丶钟灵毓秀鸡": 10131,
+    "虎牙丨吨吨盾": 10120,
+    "虎牙丶终离殇": 10113,
+    "古风丨远坂凛": 10092,
+    "封神榜道士金光剑": 10086,
+    "瑾谦上上谦": 10070,
+    "顶级手法": 10069,
+    "有局丨嘿嘿": 10028,
+    "北凉丨告辞鸡饲料": 10017,
+    "弈星丶随便上万五": 10014,
+    "虎牙丨尖尖箭": 9986,
+    "有局丨瞳术师": 9971,
+    "虎牙丨徐小慷": 9957,
+    "郭神问道小门徒": 9946,
+    "荀彧丨答案": 9942,
+    "弈星丶饭香香": 9904,
+    "彩虹丨放假君": 9887,
+    "lighting": 9886,
+    "南怀北瑾丨林川": 9872,
+    "起风了": 9870,
+    "有局丨朝暮": 9847,
+    "niai256": 9812,
+    "抖音丨浪花花": 9808,
+    "零之露易丝": 9782,
+    "奶龙丨无敌波克西": 9779,
+    "黄皮念经": 9769,
+    "苏然": 9739,
+    "biubiubiu": 9654,
+    "斗鱼丶玉米棒香": 9651,
+    "彩虹丨激情耶": 9639,
+    "限制性核酸内切酶": 9631,
+    "彩虹丨溪流萤间": 9625,
+    "BlacKDuck": 9624,
+    "爱喝水的仙人掌": 9621,
+    "抖音丨小光": 9620,
+    "荀彧丨吵吵": 9594,
+    "墨色熊猫": 9569,
+    "你棋差一招": 9539,
+    "四惠桥东": 9520,
+    "毁灭炉石传说": 9518,
+    "醉溺星河": 9513,
+    "乐邦詹士": 9480,
+    "大安庄园黄香蕉": 9478,
+    "基胖派来的奸细": 9473,
+    "永远的月饼": 9446,
+    "小灬岐": 9440,
+    "无敌佳佳豪": 9433,
+    "Boxi": 9422,
+    "冷太阳": 9402,
+    "抖音丨炉石白羽": 9398,
+    "大嘟丨微我五十": 9379,
+    "冰霜": 9378,
+    "炎穹武": 9370,
+    "中二患者中一": 9360,
+    "izZ": 9357,
+    "派派派派拉斯": 9356,
+    "开开没生意": 9337,
+    "幻想书屋": 9335,
+    "YCHRJO": 9313,
+    "抖音七只羊": 9311,
+    "鲍勃亲戚": 9283,
+    "彩虹丨明月": 9273,
+    "hatsunemiku": 9261,
+    "郭枫荷": 9248,
+    "抖音电竞庄老师": 9240,
+    "旧游无处不堪寻": 9235,
+    "为了泽城美雪": 9232,
+    "荀彧丨陈超": 9225,
+    "flamingo1": 9223,
+    "RYAN": 9215,
+    "Jrsdiekatze": 9208,
+    "弈星丶螺旋飞狗": 9202,
+    "肥硕丨霸道肥鱼": 9198,
+    "球白": 9160,
+    "小哀": 9154,
+    "抖音丨告辞丨热巴": 9125,
+    "大嘟丨不再烂团": 9118,
+    "温州呆呆受": 9115,
+    "rook": 9106,
+    "喝水小助手": 9103,
+    "KidXaviera": 9098,
+    "味道有点咸": 9077,
+    "天雨儿": 9077,
+    "有局丨笑笑": 9062,
+    "斗鱼丨最咸的鱼": 9053,
+    "财前千夏": 9049,
+    "幻林": 9045,
+    "之后": 9042,
+    "彩虹丨雨梦欣": 9040,
+    "文刀天水": 9038,
+    "德纳修斯大帝": 9035,
+    "通大丨杀手的天空": 9028,
+    "庄园杀手": 9024,
+    "yin": 9022,
+    "小瑾老婆天天开心": 9022,
+    "白色黄昏": 9020,
+    "今晚暴雨": 9009,
+    "抖音丨星海丨星空": 9000,
+    "fredon": 8981,
+    "Trory": 8971,
+    "抖音闻松": 8968,
+    "来牌": 8962,
+    "DOUYINspring": 8956,
+    "米米": 8954,
+    "GAMEKING": 8941,
+    "自在极意豪": 8941,
+    "有局丨芬里厄": 8937,
+    "多喝热水": 8925,
+    "有局丨小冰魂": 8922,
+    "小郑": 8921,
+    "丶煜": 8914,
+    "纯粹的英雄": 8901,
+    "李浩宇": 8900,
+    "大神丨观澜万象": 8890,
+    "衣锦夜行工作室": 8884,
+    "NEXO": 8864,
+    "彩虹丨无敌的垫子": 8857,
+    "一只宝宝": 8856,
+    "蛇夫": 8853,
+    "一粟逆滄海": 8852,
+    "我是火车王": 8796,
+    "fussy": 8830,
+    "韦邪": 8825,
+    "彩虹丨野野": 8820,
+    "廖之爷": 8814,
+    "荒芜": 8808,
+    "Serrsh": 8800,
+    "抖音丨阿哲": 8789,
+    "肥硕丨青岚未见": 8778,
+    "北凉丨叹春迟": 8769,
+    "MaiBaoZiowo": 8767,
+    "心苍": 8766,
+    "天才美少女予观": 8765,
+    "云边有个小卖部": 8765,
+    "斯文禽兽": 8762,
+    "Craxn": 8761,
+    "Spyfish": 8760,
+    "彩虹丨椎叶紬丶": 8758,
+    "弈星丶胖猫": 8756,
+    "山麓微风": 8751,
+    "最后0只脏牧": 8750,
+    "Bye": 8741,
+    "本间芽衣子": 8735,
+    "春风": 8729,
+    "爱吃香菜": 8725,
+    "大嘟丨慢漫": 8716,
+    "天天开心": 8697,
+    "一只鲲丶": 8692,
+    "抖音丶炉石林可": 8684,
+    "事茗": 8684,
+    "弈星丶炉石毛": 8677,
+    "AllureLOve": 8669,
+    "大嘟丨落叶": 8658,
+    "告辞丨江南步兵": 8655,
+    "solvictor": 8648,
+    "DAADAFAF": 8647,
+    "荀彧丨躞蹀之翼": 8645,
+    "沈书帆": 8644,
+    "iceshoes": 8641,
+    "断幺诗人": 8640,
+    "白鸣": 8635,
+    "江晴辞": 8622,
+    "逆神之歌": 8622,
+    "我是来看双马尾的": 8621,
+    "虾松海苔卷": 8617,
+    "大嘟丨弑神": 8612,
+    "LEGEND": 8607,
+    "迁移": 8605,
+    "打不过就加入": 8603,
+    "鬼桑": 8597,
+    "七加一等于呆八": 8597,
+    "告辞丨可爱小冷猫": 8596,
+    "抖音听山雨": 8595,
+    "天下第一丨芙宁娜": 8594,
+    "荀彧丨千音": 8587,
+    "WAautomaton": 8585,
+    "现烤大可颂": 8576,
+    "弈星丶呜拉呀哈": 8574,
+    "郭美美丶": 8567,
+    "荀彧丨龟龟": 8567,
+    "有局丨潮吧": 8561,
+    "天䩦": 8555,
+    "春风若有怜花意": 8553,
+    "弈星丶风行者": 8545,
+    "孙悟饭": 8542,
+    "嗵嗵": 8542,
+    "荀彧丨阳": 8538,
+    "告辞丨白白白": 8538,
+    "mage": 8537,
+    "原亨利神": 8531,
+    "冷静": 8520,
+    "热心市民老刘头儿": 8520,
+    "抖音武僧": 8515,
+    "爱一个人": 8515,
+    "自由之翼": 8514,
+    "铭明": 8508,
+    "肥硕丨择芷理荇": 8506,
+    "JBDa": 8500,
+    "浪里个浪": 8499,
+    "超超大仙人": 8482,
+    "阴阳人鲍勃": 8475,
+    "抖音炉指导": 8472,
+    "CangZ": 8472,
+    "志志雄": 8472,
+    "阿晓很牛逼": 8471,
+    "无所谓了": 8464,
+    "洋葱": 8464,
+    "瑞萌萌": 8461,
+    "无言独上西楼": 8453,
+    "向家村村长": 8447,
+    "FunkyPants": 8447,
+    "QZRS": 8445,
+    "逝落幕莫幻": 8443,
+    "米大官人": 8440,
+    "吃番茄的土豆": 8438,
+    "柒悦4000型": 8434,
+    "有局丨一转": 8433,
+    "彩虹丨坦诚的狼": 8422,
+    "凌老八": 8409,
+    "有局丨便衣": 8407,
+    "zhjjie": 8405,
+    "蛮力之枭": 8403,
+    "市川京太郎": 8399,
+    "弈星丶小郑": 8398,
+    "ShadowMurloc": 8390,
+    "今冬不下雪": 8390,
+    "北凉丨安巴里巴把": 8384,
+    "BurNice": 8379,
+    "每天一杯毛毛": 8375,
+    "有局丨洋芋": 8374,
+    "抖音丨彩虹丨忆棠": 8366,
+    "牛中之马": 8365,
+    "******************": 8363,
+    "有局丨外面下雨了": 8361,
+    "大嘟丨彩虹薄荷糖": 8355,
+    "蜀山多面手": 8348,
+    "大年": 8347,
+    "UKnowNothing": 8338,
+    "陶泥猴子": 8332,
+    "潜伏": 8330,
+    "点阳光比别人慢": 8328,
+    "弈星丶五言大将军": 8307,
+    "MrShaw": 8307,
+    "有局丨尹志平": 8305,
+    "Toki": 8295,
+    "友利奈绪": 8292,
+    "***************": 8287,
+    "五颜六色的瓜": 8286,
+    "倾尽我所有": 8284,
+    "斗鱼无牙土拨鼠": 8284,
+    "大嘟丨不敢想": 8283,
+    "************": 8280,
+    "堕落的天才": 8277,
+    "萌萌站起来": 8271,
+    "清辉成影夜凝霜": 8271,
+    "姜闯": 8270,
+    "十八罗汉杠上花": 8270,
+    "极品饭灵根": 8268,
+    "抖音丶恶魔苹果": 8266,
+    "腾杨天下": 8258,
+    "无名小卒": 8248,
+    "nzhsb": 8248,
+    "落雨殇云": 8246,
+    "白鹭丶": 8244,
+    "三声谢谢你投降": 8243,
+    "Sjllei": 8243,
+    "云黎子昭": 8241,
+    "SorrowCrown": 8236,
+    "额我死了": 8236,
+    "不偷不抢魔理沙": 8228,
+    "迅捷的死灵": 8226,
+    "满堂花醉三千客": 8225,
+    "星汐": 8225,
+    "满盘皆遗憾": 8219,
+    "游魂浪子": 8219,
+    "荀彧他不是苟或": 8218,
+    "OceanYellow": 8218,
+    "吧啦吧啦略略略": 8216,
+    "憔悴熊": 8211,
+    "暴富": 8210,
+    "玛德德德": 8209,
+    "速8就赖鲍勃": 8207,
+    "提姆鄧肯": 8207,
+    "我教韦德迷踪步": 8206,
+    "江阴丨南菁": 8206,
+    "有局丨最尖的箭": 8204,
+    "zzi": 8203,
+    "火之高兴": 8199,
+    "止笑": 8199,
+    "Holo": 8197,
+    "憔悴的窃贼": 8195,
+    "海南深情白落提": 8193,
+    "EverSiren": 8189,
+    "seamount233": 8178,
+    "哔站卡比与菠萝崽": 8177,
+    "李治唐完了": 8176,
+    "喵神无敌": 8176,
+    "刑诉法": 8175,
+    "蓝桉树": 8175,
+    "Gentleman": 8170,
+    "野怪我来啦": 8166,
+    "小木曾和纱别哭泣": 8166,
+    "胡亦青": 8163,
+    "狂暴猛犸象": 8163,
+    "乘风破浪": 8162,
+    "荀彧丨憨憨的小卢": 8162,
+    "申花是冠军": 8153,
+    "华科丶别读光电": 8152,
+    "彩虹丨红隼": 8150,
+    "弁山丨立麸米": 8149,
+    "重铸开门法荣光": 8148,
+    "大嘟丨菌": 8147,
+    "山海关": 8145,
+    "执迷不悔": 8143,
+    "天下第一丨甘雨": 8142,
+    "音源大大": 8141,
+    "ICY": 8141,
+    "林深时": 8139,
+    "云知汐": 8136,
+    "嗷呜": 8133,
+    "不可阻挡": 8127,
+    "冰火丨三角矛": 8126,
+    "喂了辛多雷的农药": 8122,
+    "中岛由贵本人": 8121,
+    "OvoLAL": 8119,
+    "openwudi": 8115,
+    "七八七八七八": 8110,
+    "三十亿少女的梦": 8109,
+    "牧濑红莉栖": 8106,
+    "北凉丨好叭": 8106,
+    "猴子大王": 8102,
+    "无敌打手西片": 8100,
+    "Accompan": 8097,
+    "Emuduo": 8093,
+    "不克且爱肝": 8091,
+    "福星笔笔": 8087,
+    "晚晚晚晚晚": 8085,
+    "有局丨摆摆摆摆": 8084,
+    "零度": 8082,
+    "啊西巴": 8082,
+    "GSLIKEQ": 8080,
+    "彩虹丨小鱼儿": 8080,
+    "重剑无锋": 8079,
+    "今晚打老虎": 8079,
+    "白泥墩灬东东": 8075,
+    "Kass": 8072,
+    "敲可爱丨千鹿": 8071,
+    "弈星丶呆呆兽颜粉": 8071,
+    "树叶": 8071,
+    "风轻云淡": 8070,
+    "壶梨不是狐狸": 8070,
+    "唐臣丨道者": 8069,
+    "个性": 8067,
+    "白河豚": 8061,
+    "两米没有两米": 8060,
+    "Painkiller": 8060,
+    "Player": 8059,
+    "zengka": 8059,
+    "小小之植物": 8058,
+    "大神丨摘星岑俣": 8057,
+    "为谁着魔": 8056,
+    "despais": 8054,
+    "重拾辉煌": 8052,
+    "棋王": 8052,
+    "TCTopo": 8051,
+    "弈星丶林雉": 8049,
+    "Cheese": 8048,
+    "猫南北": 8047,
+    "我本无意": 8046,
+    "锤子": 8044,
+    "黑旋风": 8044,
+    "小卡拉米": 8043,
+    "Marsyh": 8043,
+    "目不转睛啊": 8042,
+    "虎牙丨天明": 8042,
+    "achhhy": 8041,
+    "暴力鸽子": 8039,
+    "彦彦彦彦": 8039,
+    "希里尔": 8037,
+    "赋华": 8037,
+    "巨型的狼": 8037,
+    "人菜倒霉掉大分": 8036,
+    "彩虹丨玉溪大王": 8036,
+    "逐风": 8036,
+    "Godgun": 8035,
+    "我真服了": 8035,
+    "亦梦": 8035,
+    "四尽灯明": 8034,
+    "冷看尘世": 8034,
+    "不负遇见灬听风": 8034,
+    "Shadow": 8034,
+    "抖音环保小熊猫": 8033,
+    "Random": 8033,
+    "ldsj": 8032,
+    "河狸": 8031,
+    "会遁地的二狗": 8031,
+    "奇利亚斯恋爱脑型": 8031,
+    "何日才知我是我": 8030,
+    "麒麒": 8030,
+    "繁忙的雷象": 8030,
+    "jaychou": 8030,
+    "荀彧丨啊吧啊吧": 8030,
+    "我说没办法你龙嘛": 8030,
+    "Aisaka": 8030,
+    "抱走小鳄鱼丶": 8029,
+    "分无意乐真谛": 8029,
+    "丰丰丰儿": 8028,
+    "栀子花": 8028,
+    "彩虹丨山野寻风": 8028,
+    "花落叶丶殇": 8027,
+    "汉文": 8026,
+    "君上意臣下言": 8025,
+    "Nothinglose": 8025,
+    "乖巧的阿德": 8024,
+    "有手就彳亍": 8024,
+    "KotoriMinami": 8023,
+    "南巷": 8023,
+    "KingBob": 8023,
+    "伊尔米": 8022,
+    "empty": 8022,
+    "胡桃夹子": 8021,
+    "Xmr": 8021,
+    "南柯一梦": 8021,
+    "陆离": 8020,
+    "无名小辈": 8020,
+    "JJGG": 8019,
+    "抖音丶熊老戴": 8018,
+    "Moat": 8016,
+    "xiaolu12": 8015,
+    "大嘟丨叮咚": 8015,
+    "哔哩丶木每木木": 8014,
+    "烈酒洗剑弑人间": 8014,
+    "top": 8013,
+    "御坂12450号": 8013,
+    "zuijianSQJ": 8012,
+    "诸暨星狩": 8012,
+    "彩虹丨北极星": 8012,
+    "琉不爱摸鱼": 8012,
+    "JustinGary": 8011,
+    "喵的演出": 8011,
+    "欧之旅": 8011,
+    "沉默之风暴": 8010,
+    "安德罗妮的学长": 8010,
+    "按费排怪贼稳上5": 8009,
+    "丶临也": 8009,
+    "HaOm": 8009,
+    "彩虹丨依古诺": 8009,
+    "敲可爱丨仓鼠": 8009,
+    "猪猪灾灾": 8008,
+    "慌得要死丨杰尼龟": 8008,
+    "棋开得胜不可思": 8008,
+    "大嘟丨忧郁乌龟": 8008,
+    "瓜皮之王": 8008,
+    "Jaekun": 8007,
+    "坏蛋修勾": 8007,
+    "鹿野修哉": 8006,
+    "澪音": 8005,
+    "彩虹丨九方蠡": 8005,
+    "对上我你就完啦": 8005,
+    "不要乱倒垃圾": 8005,
+    "彩虹丨速八写作业": 8005,
+    "床前明月光": 8005,
+    "阿朝": 8004,
+    "弈星丶听澜": 8004,
+    "折木": 8004,
+    "那年长街春意正浓": 8003,
+    "雨落": 8002
+  },
+  "list": [
+    {
+      "position": 1,
+      "battle_tag": "小神童",
+      "score": 12027
+    },
+    {
+      "position": 2,
+      "battle_tag": "彩虹丨涵雪",
+      "score": 11663
+    },
+    {
+      "position": 3,
+      "battle_tag": "大嘟丨火车王",
+      "score": 11315
+    },
+    {
+      "position": 4,
+      "battle_tag": "园城寺怜",
+      "score": 11184
+    },
+    {
+      "position": 5,
+      "battle_tag": "无名之辈",
+      "score": 11137
+    },
+    {
+      "position": 6,
+      "battle_tag": "在乎",
+      "score": 11107
+    },
+    {
+      "position": 7,
+      "battle_tag": "jeef",
+      "score": 11060
+    },
+    {
+      "position": 8,
+      "battle_tag": "把把金铜须",
+      "score": 10925
+    },
+    {
+      "position": 9,
+      "battle_tag": "似戏",
+      "score": 10807
+    },
+    {
+      "position": 10,
+      "battle_tag": "斗鱼激情速八",
+      "score": 10760
+    },
+    {
+      "position": 11,
+      "battle_tag": "抖音丨梦境彼方",
+      "score": 10741
+    },
+    {
+      "position": 12,
+      "battle_tag": "滑稽的潜行者",
+      "score": 10666
+    },
+    {
+      "position": 13,
+      "battle_tag": "Chaos",
+      "score": 10653
+    },
+    {
+      "position": 14,
+      "battle_tag": "刀锋上的荣耀",
+      "score": 10572
+    },
+    {
+      "position": 15,
+      "battle_tag": "风的二次救赎",
+      "score": 10522
+    },
+    {
+      "position": 16,
+      "battle_tag": "温州吴彦祖",
+      "score": 10488
+    },
+    {
+      "position": 17,
+      "battle_tag": "呜呜呜呜呜呜",
+      "score": 10485
+    },
+    {
+      "position": 18,
+      "battle_tag": "JashinChan",
+      "score": 10443
+    },
+    {
+      "position": 19,
+      "battle_tag": "夕尘残枫",
+      "score": 10391
+    },
+    {
+      "position": 20,
+      "battle_tag": "抖音安德罗妮学徒",
+      "score": 10386
+    },
+    {
+      "position": 21,
+      "battle_tag": "荀彧丨九筱",
+      "score": 10375
+    },
+    {
+      "position": 22,
+      "battle_tag": "抖音丨有局丨小狼",
+      "score": 10367
+    },
+    {
+      "position": 23,
+      "battle_tag": "彩虹丨韶想",
+      "score": 10328
+    },
+    {
+      "position": 24,
+      "battle_tag": "尘落",
+      "score": 10316
+    },
+    {
+      "position": 25,
+      "battle_tag": "大安第一菜",
+      "score": 10280
+    },
+    {
+      "position": 26,
+      "battle_tag": "DouyinBruise",
+      "score": 10232
+    },
+    {
+      "position": 27,
+      "battle_tag": "哔哩哔哩丶暗影",
+      "score": 10229
+    },
+    {
+      "position": 28,
+      "battle_tag": "大嘟丨桑落",
+      "score": 10184
+    },
+    {
+      "position": 29,
+      "battle_tag": "CoolGuy",
+      "score": 10172
+    },
+    {
+      "position": 30,
+      "battle_tag": "金铜须没霸符",
+      "score": 10134
+    },
+    {
+      "position": 31,
+      "battle_tag": "大神丶钟灵毓秀鸡",
+      "score": 10131
+    },
+    {
+      "position": 32,
+      "battle_tag": "虎牙丨吨吨盾",
+      "score": 10120
+    },
+    {
+      "position": 33,
+      "battle_tag": "虎牙丶终离殇",
+      "score": 10113
+    },
+    {
+      "position": 34,
+      "battle_tag": "古风丨远坂凛",
+      "score": 10092
+    },
+    {
+      "position": 35,
+      "battle_tag": "封神榜道士金光剑",
+      "score": 10086
+    },
+    {
+      "position": 36,
+      "battle_tag": "瑾谦上上谦",
+      "score": 10070
+    },
+    {
+      "position": 37,
+      "battle_tag": "顶级手法",
+      "score": 10069
+    },
+    {
+      "position": 38,
+      "battle_tag": "大安第一菜",
+      "score": 10038
+    },
+    {
+      "position": 39,
+      "battle_tag": "有局丨嘿嘿",
+      "score": 10028
+    },
+    {
+      "position": 40,
+      "battle_tag": "北凉丨告辞鸡饲料",
+      "score": 10017
+    },
+    {
+      "position": 41,
+      "battle_tag": "弈星丶随便上万五",
+      "score": 10014
+    },
+    {
+      "position": 42,
+      "battle_tag": "虎牙丨尖尖箭",
+      "score": 9986
+    },
+    {
+      "position": 43,
+      "battle_tag": "有局丨瞳术师",
+      "score": 9971
+    },
+    {
+      "position": 44,
+      "battle_tag": "虎牙丨徐小慷",
+      "score": 9957
+    },
+    {
+      "position": 45,
+      "battle_tag": "郭神问道小门徒",
+      "score": 9946
+    },
+    {
+      "position": 46,
+      "battle_tag": "荀彧丨答案",
+      "score": 9942
+    },
+    {
+      "position": 47,
+      "battle_tag": "弈星丶饭香香",
+      "score": 9904
+    },
+    {
+      "position": 48,
+      "battle_tag": "彩虹丨放假君",
+      "score": 9887
+    },
+    {
+      "position": 49,
+      "battle_tag": "lighting",
+      "score": 9886
+    },
+    {
+      "position": 50,
+      "battle_tag": "南怀北瑾丨林川",
+      "score": 9872
+    },
+    {
+      "position": 51,
+      "battle_tag": "起风了",
+      "score": 9870
+    },
+    {
+      "position": 52,
+      "battle_tag": "有局丨朝暮",
+      "score": 9847
+    },
+    {
+      "position": 53,
+      "battle_tag": "niai256",
+      "score": 9812
+    },
+    {
+      "position": 54,
+      "battle_tag": "抖音丨浪花花",
+      "score": 9808
+    },
+    {
+      "position": 55,
+      "battle_tag": "零之露易丝",
+      "score": 9782
+    },
+    {
+      "position": 56,
+      "battle_tag": "奶龙丨无敌波克西",
+      "score": 9779
+    },
+    {
+      "position": 57,
+      "battle_tag": "黄皮念经",
+      "score": 9769
+    },
+    {
+      "position": 58,
+      "battle_tag": "苏然",
+      "score": 9739
+    },
+    {
+      "position": 59,
+      "battle_tag": "biubiubiu",
+      "score": 9654
+    },
+    {
+      "position": 60,
+      "battle_tag": "斗鱼丶玉米棒香",
+      "score": 9651
+    },
+    {
+      "position": 61,
+      "battle_tag": "彩虹丨激情耶",
+      "score": 9639
+    },
+    {
+      "position": 62,
+      "battle_tag": "限制性核酸内切酶",
+      "score": 9631
+    },
+    {
+      "position": 63,
+      "battle_tag": "彩虹丨溪流萤间",
+      "score": 9625
+    },
+    {
+      "position": 64,
+      "battle_tag": "BlacKDuck",
+      "score": 9624
+    },
+    {
+      "position": 65,
+      "battle_tag": "爱喝水的仙人掌",
+      "score": 9621
+    },
+    {
+      "position": 66,
+      "battle_tag": "抖音丨小光",
+      "score": 9620
+    },
+    {
+      "position": 67,
+      "battle_tag": "荀彧丨吵吵",
+      "score": 9594
+    },
+    {
+      "position": 68,
+      "battle_tag": "墨色熊猫",
+      "score": 9569
+    },
+    {
+      "position": 69,
+      "battle_tag": "你棋差一招",
+      "score": 9539
+    },
+    {
+      "position": 70,
+      "battle_tag": "四惠桥东",
+      "score": 9520
+    },
+    {
+      "position": 71,
+      "battle_tag": "毁灭炉石传说",
+      "score": 9518
+    },
+    {
+      "position": 72,
+      "battle_tag": "醉溺星河",
+      "score": 9513
+    },
+    {
+      "position": 73,
+      "battle_tag": "乐邦詹士",
+      "score": 9480
+    },
+    {
+      "position": 74,
+      "battle_tag": "大安庄园黄香蕉",
+      "score": 9478
+    },
+    {
+      "position": 75,
+      "battle_tag": "基胖派来的奸细",
+      "score": 9473
+    },
+    {
+      "position": 76,
+      "battle_tag": "永远的月饼",
+      "score": 9446
+    },
+    {
+      "position": 77,
+      "battle_tag": "小灬岐",
+      "score": 9440
+    },
+    {
+      "position": 78,
+      "battle_tag": "无敌佳佳豪",
+      "score": 9433
+    },
+    {
+      "position": 79,
+      "battle_tag": "Boxi",
+      "score": 9422
+    },
+    {
+      "position": 80,
+      "battle_tag": "冷太阳",
+      "score": 9402
+    },
+    {
+      "position": 81,
+      "battle_tag": "抖音丨炉石白羽",
+      "score": 9398
+    },
+    {
+      "position": 82,
+      "battle_tag": "大嘟丨微我五十",
+      "score": 9379
+    },
+    {
+      "position": 83,
+      "battle_tag": "冰霜",
+      "score": 9378
+    },
+    {
+      "position": 84,
+      "battle_tag": "炎穹武",
+      "score": 9370
+    },
+    {
+      "position": 85,
+      "battle_tag": "中二患者中一",
+      "score": 9360
+    },
+    {
+      "position": 86,
+      "battle_tag": "izZ",
+      "score": 9357
+    },
+    {
+      "position": 87,
+      "battle_tag": "派派派派拉斯",
+      "score": 9356
+    },
+    {
+      "position": 88,
+      "battle_tag": "开开没生意",
+      "score": 9337
+    },
+    {
+      "position": 89,
+      "battle_tag": "幻想书屋",
+      "score": 9335
+    },
+    {
+      "position": 90,
+      "battle_tag": "YCHRJO",
+      "score": 9313
+    },
+    {
+      "position": 91,
+      "battle_tag": "抖音七只羊",
+      "score": 9311
+    },
+    {
+      "position": 92,
+      "battle_tag": "鲍勃亲戚",
+      "score": 9283
+    },
+    {
+      "position": 93,
+      "battle_tag": "彩虹丨明月",
+      "score": 9273
+    },
+    {
+      "position": 94,
+      "battle_tag": "hatsunemiku",
+      "score": 9261
+    },
+    {
+      "position": 95,
+      "battle_tag": "郭枫荷",
+      "score": 9248
+    },
+    {
+      "position": 96,
+      "battle_tag": "抖音电竞庄老师",
+      "score": 9240
+    },
+    {
+      "position": 97,
+      "battle_tag": "旧游无处不堪寻",
+      "score": 9235
+    },
+    {
+      "position": 98,
+      "battle_tag": "为了泽城美雪",
+      "score": 9232
+    },
+    {
+      "position": 99,
+      "battle_tag": "荀彧丨陈超",
+      "score": 9225
+    },
+    {
+      "position": 100,
+      "battle_tag": "flamingo1",
+      "score": 9223
+    },
+    {
+      "position": 101,
+      "battle_tag": "RYAN",
+      "score": 9215
+    },
+    {
+      "position": 102,
+      "battle_tag": "Jrsdiekatze",
+      "score": 9208
+    },
+    {
+      "position": 103,
+      "battle_tag": "弈星丶螺旋飞狗",
+      "score": 9202
+    },
+    {
+      "position": 104,
+      "battle_tag": "肥硕丨霸道肥鱼",
+      "score": 9198
+    },
+    {
+      "position": 105,
+      "battle_tag": "球白",
+      "score": 9160
+    },
+    {
+      "position": 106,
+      "battle_tag": "小哀",
+      "score": 9154
+    },
+    {
+      "position": 107,
+      "battle_tag": "抖音丨告辞丨热巴",
+      "score": 9125
+    },
+    {
+      "position": 108,
+      "battle_tag": "大嘟丨不再烂团",
+      "score": 9118
+    },
+    {
+      "position": 109,
+      "battle_tag": "温州呆呆受",
+      "score": 9115
+    },
+    {
+      "position": 110,
+      "battle_tag": "rook",
+      "score": 9106
+    },
+    {
+      "position": 111,
+      "battle_tag": "喝水小助手",
+      "score": 9103
+    },
+    {
+      "position": 112,
+      "battle_tag": "KidXaviera",
+      "score": 9098
+    },
+    {
+      "position": 113,
+      "battle_tag": "味道有点咸",
+      "score": 9077
+    },
+    {
+      "position": 114,
+      "battle_tag": "天雨儿",
+      "score": 9077
+    },
+    {
+      "position": 115,
+      "battle_tag": "有局丨笑笑",
+      "score": 9062
+    },
+    {
+      "position": 116,
+      "battle_tag": "斗鱼丨最咸的鱼",
+      "score": 9053
+    },
+    {
+      "position": 117,
+      "battle_tag": "财前千夏",
+      "score": 9049
+    },
+    {
+      "position": 118,
+      "battle_tag": "幻林",
+      "score": 9045
+    },
+    {
+      "position": 119,
+      "battle_tag": "之后",
+      "score": 9042
+    },
+    {
+      "position": 120,
+      "battle_tag": "彩虹丨雨梦欣",
+      "score": 9040
+    },
+    {
+      "position": 121,
+      "battle_tag": "文刀天水",
+      "score": 9038
+    },
+    {
+      "position": 122,
+      "battle_tag": "德纳修斯大帝",
+      "score": 9035
+    },
+    {
+      "position": 123,
+      "battle_tag": "通大丨杀手的天空",
+      "score": 9028
+    },
+    {
+      "position": 124,
+      "battle_tag": "庄园杀手",
+      "score": 9024
+    },
+    {
+      "position": 125,
+      "battle_tag": "yin",
+      "score": 9022
+    },
+    {
+      "position": 126,
+      "battle_tag": "小瑾老婆天天开心",
+      "score": 9022
+    },
+    {
+      "position": 127,
+      "battle_tag": "白色黄昏",
+      "score": 9020
+    },
+    {
+      "position": 128,
+      "battle_tag": "今晚暴雨",
+      "score": 9009
+    },
+    {
+      "position": 129,
+      "battle_tag": "抖音丨星海丨星空",
+      "score": 9000
+    },
+    {
+      "position": 130,
+      "battle_tag": "fredon",
+      "score": 8981
+    },
+    {
+      "position": 131,
+      "battle_tag": "Trory",
+      "score": 8971
+    },
+    {
+      "position": 132,
+      "battle_tag": "抖音闻松",
+      "score": 8968
+    },
+    {
+      "position": 133,
+      "battle_tag": "来牌",
+      "score": 8962
+    },
+    {
+      "position": 134,
+      "battle_tag": "DOUYINspring",
+      "score": 8956
+    },
+    {
+      "position": 135,
+      "battle_tag": "米米",
+      "score": 8954
+    },
+    {
+      "position": 136,
+      "battle_tag": "GAMEKING",
+      "score": 8941
+    },
+    {
+      "position": 137,
+      "battle_tag": "自在极意豪",
+      "score": 8941
+    },
+    {
+      "position": 138,
+      "battle_tag": "有局丨芬里厄",
+      "score": 8937
+    },
+    {
+      "position": 139,
+      "battle_tag": "多喝热水",
+      "score": 8925
+    },
+    {
+      "position": 140,
+      "battle_tag": "有局丨小冰魂",
+      "score": 8922
+    },
+    {
+      "position": 141,
+      "battle_tag": "小郑",
+      "score": 8921
+    },
+    {
+      "position": 142,
+      "battle_tag": "丶煜",
+      "score": 8914
+    },
+    {
+      "position": 143,
+      "battle_tag": "纯粹的英雄",
+      "score": 8901
+    },
+    {
+      "position": 144,
+      "battle_tag": "李浩宇",
+      "score": 8900
+    },
+    {
+      "position": 145,
+      "battle_tag": "大神丨观澜万象",
+      "score": 8890
+    },
+    {
+      "position": 146,
+      "battle_tag": "衣锦夜行工作室",
+      "score": 8884
+    },
+    {
+      "position": 147,
+      "battle_tag": "NEXO",
+      "score": 8864
+    },
+    {
+      "position": 148,
+      "battle_tag": "彩虹丨无敌的垫子",
+      "score": 8857
+    },
+    {
+      "position": 149,
+      "battle_tag": "一只宝宝",
+      "score": 8856
+    },
+    {
+      "position": 150,
+      "battle_tag": "蛇夫",
+      "score": 8853
+    },
+    {
+      "position": 151,
+      "battle_tag": "一粟逆滄海",
+      "score": 8852
+    },
+    {
+      "position": 152,
+      "battle_tag": "我是火车王",
+      "score": 8836
+    },
+    {
+      "position": 153,
+      "battle_tag": "fussy",
+      "score": 8830
+    },
+    {
+      "position": 154,
+      "battle_tag": "韦邪",
+      "score": 8825
+    },
+    {
+      "position": 155,
+      "battle_tag": "彩虹丨野野",
+      "score": 8820
+    },
+    {
+      "position": 156,
+      "battle_tag": "廖之爷",
+      "score": 8814
+    },
+    {
+      "position": 157,
+      "battle_tag": "荒芜",
+      "score": 8808
+    },
+    {
+      "position": 158,
+      "battle_tag": "Serrsh",
+      "score": 8800
+    },
+    {
+      "position": 159,
+      "battle_tag": "我是火车王",
+      "score": 8796
+    },
+    {
+      "position": 160,
+      "battle_tag": "抖音丨阿哲",
+      "score": 8789
+    },
+    {
+      "position": 161,
+      "battle_tag": "肥硕丨青岚未见",
+      "score": 8778
+    },
+    {
+      "position": 162,
+      "battle_tag": "北凉丨叹春迟",
+      "score": 8769
+    },
+    {
+      "position": 163,
+      "battle_tag": "MaiBaoZiowo",
+      "score": 8767
+    },
+    {
+      "position": 164,
+      "battle_tag": "心苍",
+      "score": 8766
+    },
+    {
+      "position": 165,
+      "battle_tag": "天才美少女予观",
+      "score": 8765
+    },
+    {
+      "position": 166,
+      "battle_tag": "云边有个小卖部",
+      "score": 8765
+    },
+    {
+      "position": 167,
+      "battle_tag": "斯文禽兽",
+      "score": 8762
+    },
+    {
+      "position": 168,
+      "battle_tag": "Craxn",
+      "score": 8761
+    },
+    {
+      "position": 169,
+      "battle_tag": "Spyfish",
+      "score": 8760
+    },
+    {
+      "position": 170,
+      "battle_tag": "彩虹丨椎叶紬丶",
+      "score": 8758
+    },
+    {
+      "position": 171,
+      "battle_tag": "弈星丶胖猫",
+      "score": 8756
+    },
+    {
+      "position": 172,
+      "battle_tag": "山麓微风",
+      "score": 8751
+    },
+    {
+      "position": 173,
+      "battle_tag": "最后0只脏牧",
+      "score": 8750
+    },
+    {
+      "position": 174,
+      "battle_tag": "Bye",
+      "score": 8741
+    },
+    {
+      "position": 175,
+      "battle_tag": "本间芽衣子",
+      "score": 8735
+    },
+    {
+      "position": 176,
+      "battle_tag": "春风",
+      "score": 8729
+    },
+    {
+      "position": 177,
+      "battle_tag": "爱吃香菜",
+      "score": 8725
+    },
+    {
+      "position": 178,
+      "battle_tag": "大嘟丨慢漫",
+      "score": 8716
+    },
+    {
+      "position": 179,
+      "battle_tag": "天天开心",
+      "score": 8697
+    },
+    {
+      "position": 180,
+      "battle_tag": "一只鲲丶",
+      "score": 8692
+    },
+    {
+      "position": 181,
+      "battle_tag": "抖音丶炉石林可",
+      "score": 8684
+    },
+    {
+      "position": 182,
+      "battle_tag": "事茗",
+      "score": 8684
+    },
+    {
+      "position": 183,
+      "battle_tag": "弈星丶炉石毛",
+      "score": 8677
+    },
+    {
+      "position": 184,
+      "battle_tag": "AllureLOve",
+      "score": 8669
+    },
+    {
+      "position": 185,
+      "battle_tag": "大嘟丨落叶",
+      "score": 8658
+    },
+    {
+      "position": 186,
+      "battle_tag": "告辞丨江南步兵",
+      "score": 8655
+    },
+    {
+      "position": 187,
+      "battle_tag": "solvictor",
+      "score": 8648
+    },
+    {
+      "position": 188,
+      "battle_tag": "DAADAFAF",
+      "score": 8647
+    },
+    {
+      "position": 189,
+      "battle_tag": "荀彧丨躞蹀之翼",
+      "score": 8645
+    },
+    {
+      "position": 190,
+      "battle_tag": "沈书帆",
+      "score": 8644
+    },
+    {
+      "position": 191,
+      "battle_tag": "iceshoes",
+      "score": 8641
+    },
+    {
+      "position": 192,
+      "battle_tag": "断幺诗人",
+      "score": 8640
+    },
+    {
+      "position": 193,
+      "battle_tag": "白鸣",
+      "score": 8635
+    },
+    {
+      "position": 194,
+      "battle_tag": "江晴辞",
+      "score": 8622
+    },
+    {
+      "position": 195,
+      "battle_tag": "逆神之歌",
+      "score": 8622
+    },
+    {
+      "position": 196,
+      "battle_tag": "我是来看双马尾的",
+      "score": 8621
+    },
+    {
+      "position": 197,
+      "battle_tag": "虾松海苔卷",
+      "score": 8617
+    },
+    {
+      "position": 198,
+      "battle_tag": "大嘟丨弑神",
+      "score": 8612
+    },
+    {
+      "position": 199,
+      "battle_tag": "LEGEND",
+      "score": 8607
+    },
+    {
+      "position": 200,
+      "battle_tag": "迁移",
+      "score": 8605
+    },
+    {
+      "position": 201,
+      "battle_tag": "打不过就加入",
+      "score": 8603
+    },
+    {
+      "position": 202,
+      "battle_tag": "鬼桑",
+      "score": 8597
+    },
+    {
+      "position": 203,
+      "battle_tag": "七加一等于呆八",
+      "score": 8597
+    },
+    {
+      "position": 204,
+      "battle_tag": "告辞丨可爱小冷猫",
+      "score": 8596
+    },
+    {
+      "position": 205,
+      "battle_tag": "抖音听山雨",
+      "score": 8595
+    },
+    {
+      "position": 206,
+      "battle_tag": "天下第一丨芙宁娜",
+      "score": 8594
+    },
+    {
+      "position": 207,
+      "battle_tag": "荀彧丨千音",
+      "score": 8587
+    },
+    {
+      "position": 208,
+      "battle_tag": "WAautomaton",
+      "score": 8585
+    },
+    {
+      "position": 209,
+      "battle_tag": "现烤大可颂",
+      "score": 8576
+    },
+    {
+      "position": 210,
+      "battle_tag": "弈星丶呜拉呀哈",
+      "score": 8574
+    },
+    {
+      "position": 211,
+      "battle_tag": "郭美美丶",
+      "score": 8567
+    },
+    {
+      "position": 212,
+      "battle_tag": "荀彧丨龟龟",
+      "score": 8567
+    },
+    {
+      "position": 213,
+      "battle_tag": "有局丨潮吧",
+      "score": 8561
+    },
+    {
+      "position": 214,
+      "battle_tag": "天䩦",
+      "score": 8555
+    },
+    {
+      "position": 215,
+      "battle_tag": "春风若有怜花意",
+      "score": 8553
+    },
+    {
+      "position": 216,
+      "battle_tag": "弈星丶风行者",
+      "score": 8545
+    },
+    {
+      "position": 217,
+      "battle_tag": "孙悟饭",
+      "score": 8542
+    },
+    {
+      "position": 218,
+      "battle_tag": "嗵嗵",
+      "score": 8542
+    },
+    {
+      "position": 219,
+      "battle_tag": "荀彧丨阳",
+      "score": 8538
+    },
+    {
+      "position": 220,
+      "battle_tag": "告辞丨白白白",
+      "score": 8538
+    },
+    {
+      "position": 221,
+      "battle_tag": "mage",
+      "score": 8537
+    },
+    {
+      "position": 222,
+      "battle_tag": "原亨利神",
+      "score": 8531
+    },
+    {
+      "position": 223,
+      "battle_tag": "冷静",
+      "score": 8520
+    },
+    {
+      "position": 224,
+      "battle_tag": "热心市民老刘头儿",
+      "score": 8520
+    },
+    {
+      "position": 225,
+      "battle_tag": "抖音武僧",
+      "score": 8515
+    },
+    {
+      "position": 226,
+      "battle_tag": "爱一个人",
+      "score": 8515
+    },
+    {
+      "position": 227,
+      "battle_tag": "自由之翼",
+      "score": 8514
+    },
+    {
+      "position": 228,
+      "battle_tag": "铭明",
+      "score": 8508
+    },
+    {
+      "position": 229,
+      "battle_tag": "肥硕丨择芷理荇",
+      "score": 8506
+    },
+    {
+      "position": 230,
+      "battle_tag": "JBDa",
+      "score": 8500
+    },
+    {
+      "position": 231,
+      "battle_tag": "浪里个浪",
+      "score": 8499
+    },
+    {
+      "position": 232,
+      "battle_tag": "超超大仙人",
+      "score": 8482
+    },
+    {
+      "position": 233,
+      "battle_tag": "阴阳人鲍勃",
+      "score": 8475
+    },
+    {
+      "position": 234,
+      "battle_tag": "抖音炉指导",
+      "score": 8472
+    },
+    {
+      "position": 235,
+      "battle_tag": "CangZ",
+      "score": 8472
+    },
+    {
+      "position": 236,
+      "battle_tag": "志志雄",
+      "score": 8472
+    },
+    {
+      "position": 237,
+      "battle_tag": "阿晓很牛逼",
+      "score": 8471
+    },
+    {
+      "position": 238,
+      "battle_tag": "无所谓了",
+      "score": 8464
+    },
+    {
+      "position": 239,
+      "battle_tag": "洋葱",
+      "score": 8464
+    },
+    {
+      "position": 240,
+      "battle_tag": "瑞萌萌",
+      "score": 8461
+    },
+    {
+      "position": 241,
+      "battle_tag": "无言独上西楼",
+      "score": 8453
+    },
+    {
+      "position": 242,
+      "battle_tag": "向家村村长",
+      "score": 8447
+    },
+    {
+      "position": 243,
+      "battle_tag": "FunkyPants",
+      "score": 8447
+    },
+    {
+      "position": 244,
+      "battle_tag": "QZRS",
+      "score": 8445
+    },
+    {
+      "position": 245,
+      "battle_tag": "逝落幕莫幻",
+      "score": 8443
+    },
+    {
+      "position": 246,
+      "battle_tag": "米大官人",
+      "score": 8440
+    },
+    {
+      "position": 247,
+      "battle_tag": "吃番茄的土豆",
+      "score": 8438
+    },
+    {
+      "position": 248,
+      "battle_tag": "柒悦4000型",
+      "score": 8434
+    },
+    {
+      "position": 249,
+      "battle_tag": "有局丨一转",
+      "score": 8433
+    },
+    {
+      "position": 250,
+      "battle_tag": "彩虹丨坦诚的狼",
+      "score": 8422
+    },
+    {
+      "position": 251,
+      "battle_tag": "凌老八",
+      "score": 8409
+    },
+    {
+      "position": 252,
+      "battle_tag": "有局丨便衣",
+      "score": 8407
+    },
+    {
+      "position": 253,
+      "battle_tag": "zhjjie",
+      "score": 8405
+    },
+    {
+      "position": 254,
+      "battle_tag": "蛮力之枭",
+      "score": 8403
+    },
+    {
+      "position": 255,
+      "battle_tag": "市川京太郎",
+      "score": 8399
+    },
+    {
+      "position": 256,
+      "battle_tag": "弈星丶小郑",
+      "score": 8398
+    },
+    {
+      "position": 257,
+      "battle_tag": "ShadowMurloc",
+      "score": 8390
+    },
+    {
+      "position": 258,
+      "battle_tag": "今冬不下雪",
+      "score": 8390
+    },
+    {
+      "position": 259,
+      "battle_tag": "北凉丨安巴里巴把",
+      "score": 8384
+    },
+    {
+      "position": 260,
+      "battle_tag": "BurNice",
+      "score": 8379
+    },
+    {
+      "position": 261,
+      "battle_tag": "每天一杯毛毛",
+      "score": 8375
+    },
+    {
+      "position": 262,
+      "battle_tag": "有局丨洋芋",
+      "score": 8374
+    },
+    {
+      "position": 263,
+      "battle_tag": "抖音丨彩虹丨忆棠",
+      "score": 8366
+    },
+    {
+      "position": 264,
+      "battle_tag": "牛中之马",
+      "score": 8365
+    },
+    {
+      "position": 265,
+      "battle_tag": "******************",
+      "score": 8363
+    },
+    {
+      "position": 266,
+      "battle_tag": "有局丨外面下雨了",
+      "score": 8361
+    },
+    {
+      "position": 267,
+      "battle_tag": "大嘟丨彩虹薄荷糖",
+      "score": 8355
+    },
+    {
+      "position": 268,
+      "battle_tag": "蜀山多面手",
+      "score": 8348
+    },
+    {
+      "position": 269,
+      "battle_tag": "大年",
+      "score": 8347
+    },
+    {
+      "position": 270,
+      "battle_tag": "UKnowNothing",
+      "score": 8338
+    },
+    {
+      "position": 271,
+      "battle_tag": "陶泥猴子",
+      "score": 8332
+    },
+    {
+      "position": 272,
+      "battle_tag": "潜伏",
+      "score": 8330
+    },
+    {
+      "position": 273,
+      "battle_tag": "点阳光比别人慢",
+      "score": 8328
+    },
+    {
+      "position": 274,
+      "battle_tag": "弈星丶五言大将军",
+      "score": 8307
+    },
+    {
+      "position": 275,
+      "battle_tag": "MrShaw",
+      "score": 8307
+    },
+    {
+      "position": 276,
+      "battle_tag": "有局丨尹志平",
+      "score": 8305
+    },
+    {
+      "position": 277,
+      "battle_tag": "Toki",
+      "score": 8295
+    },
+    {
+      "position": 278,
+      "battle_tag": "友利奈绪",
+      "score": 8292
+    },
+    {
+      "position": 279,
+      "battle_tag": "***************",
+      "score": 8287
+    },
+    {
+      "position": 280,
+      "battle_tag": "五颜六色的瓜",
+      "score": 8286
+    },
+    {
+      "position": 281,
+      "battle_tag": "倾尽我所有",
+      "score": 8284
+    },
+    {
+      "position": 282,
+      "battle_tag": "斗鱼无牙土拨鼠",
+      "score": 8284
+    },
+    {
+      "position": 283,
+      "battle_tag": "大嘟丨不敢想",
+      "score": 8283
+    },
+    {
+      "position": 284,
+      "battle_tag": "************",
+      "score": 8280
+    },
+    {
+      "position": 285,
+      "battle_tag": "堕落的天才",
+      "score": 8277
+    },
+    {
+      "position": 286,
+      "battle_tag": "萌萌站起来",
+      "score": 8271
+    },
+    {
+      "position": 287,
+      "battle_tag": "清辉成影夜凝霜",
+      "score": 8271
+    },
+    {
+      "position": 288,
+      "battle_tag": "姜闯",
+      "score": 8270
+    },
+    {
+      "position": 289,
+      "battle_tag": "十八罗汉杠上花",
+      "score": 8270
+    },
+    {
+      "position": 290,
+      "battle_tag": "极品饭灵根",
+      "score": 8268
+    },
+    {
+      "position": 291,
+      "battle_tag": "抖音丶恶魔苹果",
+      "score": 8266
+    },
+    {
+      "position": 292,
+      "battle_tag": "腾杨天下",
+      "score": 8258
+    },
+    {
+      "position": 293,
+      "battle_tag": "无名小卒",
+      "score": 8248
+    },
+    {
+      "position": 294,
+      "battle_tag": "nzhsb",
+      "score": 8248
+    },
+    {
+      "position": 295,
+      "battle_tag": "落雨殇云",
+      "score": 8246
+    },
+    {
+      "position": 296,
+      "battle_tag": "白鹭丶",
+      "score": 8244
+    },
+    {
+      "position": 297,
+      "battle_tag": "三声谢谢你投降",
+      "score": 8243
+    },
+    {
+      "position": 298,
+      "battle_tag": "Sjllei",
+      "score": 8243
+    },
+    {
+      "position": 299,
+      "battle_tag": "云黎子昭",
+      "score": 8241
+    },
+    {
+      "position": 300,
+      "battle_tag": "SorrowCrown",
+      "score": 8236
+    },
+    {
+      "position": 301,
+      "battle_tag": "额我死了",
+      "score": 8236
+    },
+    {
+      "position": 302,
+      "battle_tag": "不偷不抢魔理沙",
+      "score": 8228
+    },
+    {
+      "position": 303,
+      "battle_tag": "迅捷的死灵",
+      "score": 8226
+    },
+    {
+      "position": 304,
+      "battle_tag": "满堂花醉三千客",
+      "score": 8225
+    },
+    {
+      "position": 305,
+      "battle_tag": "星汐",
+      "score": 8225
+    },
+    {
+      "position": 306,
+      "battle_tag": "满盘皆遗憾",
+      "score": 8219
+    },
+    {
+      "position": 307,
+      "battle_tag": "游魂浪子",
+      "score": 8219
+    },
+    {
+      "position": 308,
+      "battle_tag": "荀彧他不是苟或",
+      "score": 8218
+    },
+    {
+      "position": 309,
+      "battle_tag": "OceanYellow",
+      "score": 8218
+    },
+    {
+      "position": 310,
+      "battle_tag": "吧啦吧啦略略略",
+      "score": 8216
+    },
+    {
+      "position": 311,
+      "battle_tag": "憔悴熊",
+      "score": 8211
+    },
+    {
+      "position": 312,
+      "battle_tag": "暴富",
+      "score": 8210
+    },
+    {
+      "position": 313,
+      "battle_tag": "玛德德德",
+      "score": 8209
+    },
+    {
+      "position": 314,
+      "battle_tag": "速8就赖鲍勃",
+      "score": 8207
+    },
+    {
+      "position": 315,
+      "battle_tag": "提姆鄧肯",
+      "score": 8207
+    },
+    {
+      "position": 316,
+      "battle_tag": "我教韦德迷踪步",
+      "score": 8206
+    },
+    {
+      "position": 317,
+      "battle_tag": "江阴丨南菁",
+      "score": 8206
+    },
+    {
+      "position": 318,
+      "battle_tag": "有局丨最尖的箭",
+      "score": 8204
+    },
+    {
+      "position": 319,
+      "battle_tag": "zzi",
+      "score": 8203
+    },
+    {
+      "position": 320,
+      "battle_tag": "火之高兴",
+      "score": 8199
+    },
+    {
+      "position": 321,
+      "battle_tag": "止笑",
+      "score": 8199
+    },
+    {
+      "position": 322,
+      "battle_tag": "Holo",
+      "score": 8197
+    },
+    {
+      "position": 323,
+      "battle_tag": "憔悴的窃贼",
+      "score": 8195
+    },
+    {
+      "position": 324,
+      "battle_tag": "海南深情白落提",
+      "score": 8193
+    },
+    {
+      "position": 325,
+      "battle_tag": "Chaos",
+      "score": 8191
+    },
+    {
+      "position": 326,
+      "battle_tag": "EverSiren",
+      "score": 8189
+    },
+    {
+      "position": 327,
+      "battle_tag": "seamount233",
+      "score": 8178
+    },
+    {
+      "position": 328,
+      "battle_tag": "哔站卡比与菠萝崽",
+      "score": 8177
+    },
+    {
+      "position": 329,
+      "battle_tag": "李治唐完了",
+      "score": 8176
+    },
+    {
+      "position": 330,
+      "battle_tag": "喵神无敌",
+      "score": 8176
+    },
+    {
+      "position": 331,
+      "battle_tag": "刑诉法",
+      "score": 8175
+    },
+    {
+      "position": 332,
+      "battle_tag": "蓝桉树",
+      "score": 8175
+    },
+    {
+      "position": 333,
+      "battle_tag": "Gentleman",
+      "score": 8170
+    },
+    {
+      "position": 334,
+      "battle_tag": "野怪我来啦",
+      "score": 8166
+    },
+    {
+      "position": 335,
+      "battle_tag": "小木曾和纱别哭泣",
+      "score": 8166
+    },
+    {
+      "position": 336,
+      "battle_tag": "胡亦青",
+      "score": 8163
+    },
+    {
+      "position": 337,
+      "battle_tag": "狂暴猛犸象",
+      "score": 8163
+    },
+    {
+      "position": 338,
+      "battle_tag": "乘风破浪",
+      "score": 8162
+    },
+    {
+      "position": 339,
+      "battle_tag": "荀彧丨憨憨的小卢",
+      "score": 8162
+    },
+    {
+      "position": 340,
+      "battle_tag": "申花是冠军",
+      "score": 8153
+    },
+    {
+      "position": 341,
+      "battle_tag": "华科丶别读光电",
+      "score": 8152
+    },
+    {
+      "position": 342,
+      "battle_tag": "彩虹丨红隼",
+      "score": 8150
+    },
+    {
+      "position": 343,
+      "battle_tag": "弁山丨立麸米",
+      "score": 8149
+    },
+    {
+      "position": 344,
+      "battle_tag": "重铸开门法荣光",
+      "score": 8148
+    },
+    {
+      "position": 345,
+      "battle_tag": "大嘟丨菌",
+      "score": 8147
+    },
+    {
+      "position": 346,
+      "battle_tag": "山海关",
+      "score": 8145
+    },
+    {
+      "position": 347,
+      "battle_tag": "执迷不悔",
+      "score": 8143
+    },
+    {
+      "position": 348,
+      "battle_tag": "天下第一丨甘雨",
+      "score": 8142
+    },
+    {
+      "position": 349,
+      "battle_tag": "音源大大",
+      "score": 8141
+    },
+    {
+      "position": 350,
+      "battle_tag": "ICY",
+      "score": 8141
+    },
+    {
+      "position": 351,
+      "battle_tag": "林深时",
+      "score": 8139
+    },
+    {
+      "position": 352,
+      "battle_tag": "云知汐",
+      "score": 8136
+    },
+    {
+      "position": 353,
+      "battle_tag": "嗷呜",
+      "score": 8133
+    },
+    {
+      "position": 354,
+      "battle_tag": "不可阻挡",
+      "score": 8127
+    },
+    {
+      "position": 355,
+      "battle_tag": "冰火丨三角矛",
+      "score": 8126
+    },
+    {
+      "position": 356,
+      "battle_tag": "喂了辛多雷的农药",
+      "score": 8122
+    },
+    {
+      "position": 357,
+      "battle_tag": "中岛由贵本人",
+      "score": 8121
+    },
+    {
+      "position": 358,
+      "battle_tag": "OvoLAL",
+      "score": 8119
+    },
+    {
+      "position": 359,
+      "battle_tag": "openwudi",
+      "score": 8115
+    },
+    {
+      "position": 360,
+      "battle_tag": "七八七八七八",
+      "score": 8110
+    },
+    {
+      "position": 361,
+      "battle_tag": "三十亿少女的梦",
+      "score": 8109
+    },
+    {
+      "position": 362,
+      "battle_tag": "牧濑红莉栖",
+      "score": 8106
+    },
+    {
+      "position": 363,
+      "battle_tag": "北凉丨好叭",
+      "score": 8106
+    },
+    {
+      "position": 364,
+      "battle_tag": "猴子大王",
+      "score": 8102
+    },
+    {
+      "position": 365,
+      "battle_tag": "无敌打手西片",
+      "score": 8100
+    },
+    {
+      "position": 366,
+      "battle_tag": "Accompan",
+      "score": 8097
+    },
+    {
+      "position": 367,
+      "battle_tag": "Emuduo",
+      "score": 8093
+    },
+    {
+      "position": 368,
+      "battle_tag": "不克且爱肝",
+      "score": 8091
+    },
+    {
+      "position": 369,
+      "battle_tag": "福星笔笔",
+      "score": 8087
+    },
+    {
+      "position": 370,
+      "battle_tag": "晚晚晚晚晚",
+      "score": 8085
+    },
+    {
+      "position": 371,
+      "battle_tag": "有局丨摆摆摆摆",
+      "score": 8084
+    },
+    {
+      "position": 372,
+      "battle_tag": "零度",
+      "score": 8082
+    },
+    {
+      "position": 373,
+      "battle_tag": "啊西巴",
+      "score": 8082
+    },
+    {
+      "position": 374,
+      "battle_tag": "GSLIKEQ",
+      "score": 8080
+    },
+    {
+      "position": 375,
+      "battle_tag": "彩虹丨小鱼儿",
+      "score": 8080
+    },
+    {
+      "position": 376,
+      "battle_tag": "重剑无锋",
+      "score": 8079
+    },
+    {
+      "position": 377,
+      "battle_tag": "今晚打老虎",
+      "score": 8079
+    },
+    {
+      "position": 378,
+      "battle_tag": "白泥墩灬东东",
+      "score": 8075
+    },
+    {
+      "position": 379,
+      "battle_tag": "Kass",
+      "score": 8072
+    },
+    {
+      "position": 380,
+      "battle_tag": "敲可爱丨千鹿",
+      "score": 8071
+    },
+    {
+      "position": 381,
+      "battle_tag": "弈星丶呆呆兽颜粉",
+      "score": 8071
+    },
+    {
+      "position": 382,
+      "battle_tag": "树叶",
+      "score": 8071
+    },
+    {
+      "position": 383,
+      "battle_tag": "风轻云淡",
+      "score": 8070
+    },
+    {
+      "position": 384,
+      "battle_tag": "壶梨不是狐狸",
+      "score": 8070
+    },
+    {
+      "position": 385,
+      "battle_tag": "唐臣丨道者",
+      "score": 8069
+    },
+    {
+      "position": 386,
+      "battle_tag": "个性",
+      "score": 8067
+    },
+    {
+      "position": 387,
+      "battle_tag": "白河豚",
+      "score": 8061
+    },
+    {
+      "position": 388,
+      "battle_tag": "两米没有两米",
+      "score": 8060
+    },
+    {
+      "position": 389,
+      "battle_tag": "Painkiller",
+      "score": 8060
+    },
+    {
+      "position": 390,
+      "battle_tag": "Player",
+      "score": 8059
+    },
+    {
+      "position": 391,
+      "battle_tag": "zengka",
+      "score": 8059
+    },
+    {
+      "position": 392,
+      "battle_tag": "小小之植物",
+      "score": 8058
+    },
+    {
+      "position": 393,
+      "battle_tag": "大神丨摘星岑俣",
+      "score": 8057
+    },
+    {
+      "position": 394,
+      "battle_tag": "为谁着魔",
+      "score": 8056
+    },
+    {
+      "position": 395,
+      "battle_tag": "despais",
+      "score": 8054
+    },
+    {
+      "position": 396,
+      "battle_tag": "重拾辉煌",
+      "score": 8052
+    },
+    {
+      "position": 397,
+      "battle_tag": "棋王",
+      "score": 8052
+    },
+    {
+      "position": 398,
+      "battle_tag": "TCTopo",
+      "score": 8051
+    },
+    {
+      "position": 399,
+      "battle_tag": "弈星丶林雉",
+      "score": 8049
+    },
+    {
+      "position": 400,
+      "battle_tag": "Cheese",
+      "score": 8048
+    },
+    {
+      "position": 401,
+      "battle_tag": "猫南北",
+      "score": 8047
+    },
+    {
+      "position": 402,
+      "battle_tag": "我本无意",
+      "score": 8046
+    },
+    {
+      "position": 403,
+      "battle_tag": "锤子",
+      "score": 8044
+    },
+    {
+      "position": 404,
+      "battle_tag": "黑旋风",
+      "score": 8044
+    },
+    {
+      "position": 405,
+      "battle_tag": "小卡拉米",
+      "score": 8043
+    },
+    {
+      "position": 406,
+      "battle_tag": "Marsyh",
+      "score": 8043
+    },
+    {
+      "position": 407,
+      "battle_tag": "目不转睛啊",
+      "score": 8042
+    },
+    {
+      "position": 408,
+      "battle_tag": "虎牙丨天明",
+      "score": 8042
+    },
+    {
+      "position": 409,
+      "battle_tag": "achhhy",
+      "score": 8041
+    },
+    {
+      "position": 410,
+      "battle_tag": "暴力鸽子",
+      "score": 8039
+    },
+    {
+      "position": 411,
+      "battle_tag": "彦彦彦彦",
+      "score": 8039
+    },
+    {
+      "position": 412,
+      "battle_tag": "希里尔",
+      "score": 8037
+    },
+    {
+      "position": 413,
+      "battle_tag": "赋华",
+      "score": 8037
+    },
+    {
+      "position": 414,
+      "battle_tag": "巨型的狼",
+      "score": 8037
+    },
+    {
+      "position": 415,
+      "battle_tag": "人菜倒霉掉大分",
+      "score": 8036
+    },
+    {
+      "position": 416,
+      "battle_tag": "彩虹丨玉溪大王",
+      "score": 8036
+    },
+    {
+      "position": 417,
+      "battle_tag": "逐风",
+      "score": 8036
+    },
+    {
+      "position": 418,
+      "battle_tag": "Godgun",
+      "score": 8035
+    },
+    {
+      "position": 419,
+      "battle_tag": "我真服了",
+      "score": 8035
+    },
+    {
+      "position": 420,
+      "battle_tag": "亦梦",
+      "score": 8035
+    },
+    {
+      "position": 421,
+      "battle_tag": "四尽灯明",
+      "score": 8034
+    },
+    {
+      "position": 422,
+      "battle_tag": "冷看尘世",
+      "score": 8034
+    },
+    {
+      "position": 423,
+      "battle_tag": "不负遇见灬听风",
+      "score": 8034
+    },
+    {
+      "position": 424,
+      "battle_tag": "Shadow",
+      "score": 8034
+    },
+    {
+      "position": 425,
+      "battle_tag": "抖音环保小熊猫",
+      "score": 8033
+    },
+    {
+      "position": 426,
+      "battle_tag": "Random",
+      "score": 8033
+    },
+    {
+      "position": 427,
+      "battle_tag": "ldsj",
+      "score": 8032
+    },
+    {
+      "position": 428,
+      "battle_tag": "河狸",
+      "score": 8031
+    },
+    {
+      "position": 429,
+      "battle_tag": "会遁地的二狗",
+      "score": 8031
+    },
+    {
+      "position": 430,
+      "battle_tag": "奇利亚斯恋爱脑型",
+      "score": 8031
+    },
+    {
+      "position": 431,
+      "battle_tag": "何日才知我是我",
+      "score": 8030
+    },
+    {
+      "position": 432,
+      "battle_tag": "麒麒",
+      "score": 8030
+    },
+    {
+      "position": 433,
+      "battle_tag": "繁忙的雷象",
+      "score": 8030
+    },
+    {
+      "position": 434,
+      "battle_tag": "jaychou",
+      "score": 8030
+    },
+    {
+      "position": 435,
+      "battle_tag": "荀彧丨啊吧啊吧",
+      "score": 8030
+    },
+    {
+      "position": 436,
+      "battle_tag": "我说没办法你龙嘛",
+      "score": 8030
+    },
+    {
+      "position": 437,
+      "battle_tag": "Aisaka",
+      "score": 8030
+    },
+    {
+      "position": 438,
+      "battle_tag": "抱走小鳄鱼丶",
+      "score": 8029
+    },
+    {
+      "position": 439,
+      "battle_tag": "分无意乐真谛",
+      "score": 8029
+    },
+    {
+      "position": 440,
+      "battle_tag": "丰丰丰儿",
+      "score": 8028
+    },
+    {
+      "position": 441,
+      "battle_tag": "栀子花",
+      "score": 8028
+    },
+    {
+      "position": 442,
+      "battle_tag": "彩虹丨山野寻风",
+      "score": 8028
+    },
+    {
+      "position": 443,
+      "battle_tag": "花落叶丶殇",
+      "score": 8027
+    },
+    {
+      "position": 444,
+      "battle_tag": "汉文",
+      "score": 8026
+    },
+    {
+      "position": 445,
+      "battle_tag": "君上意臣下言",
+      "score": 8025
+    },
+    {
+      "position": 446,
+      "battle_tag": "Nothinglose",
+      "score": 8025
+    },
+    {
+      "position": 447,
+      "battle_tag": "乖巧的阿德",
+      "score": 8024
+    },
+    {
+      "position": 448,
+      "battle_tag": "有手就彳亍",
+      "score": 8024
+    },
+    {
+      "position": 449,
+      "battle_tag": "KotoriMinami",
+      "score": 8023
+    },
+    {
+      "position": 450,
+      "battle_tag": "南巷",
+      "score": 8023
+    },
+    {
+      "position": 451,
+      "battle_tag": "KingBob",
+      "score": 8023
+    },
+    {
+      "position": 452,
+      "battle_tag": "伊尔米",
+      "score": 8022
+    },
+    {
+      "position": 453,
+      "battle_tag": "empty",
+      "score": 8022
+    },
+    {
+      "position": 454,
+      "battle_tag": "胡桃夹子",
+      "score": 8021
+    },
+    {
+      "position": 455,
+      "battle_tag": "Xmr",
+      "score": 8021
+    },
+    {
+      "position": 456,
+      "battle_tag": "南柯一梦",
+      "score": 8021
+    },
+    {
+      "position": 457,
+      "battle_tag": "陆离",
+      "score": 8020
+    },
+    {
+      "position": 458,
+      "battle_tag": "无名小辈",
+      "score": 8020
+    },
+    {
+      "position": 459,
+      "battle_tag": "JJGG",
+      "score": 8019
+    },
+    {
+      "position": 460,
+      "battle_tag": "抖音丶熊老戴",
+      "score": 8018
+    },
+    {
+      "position": 461,
+      "battle_tag": "Moat",
+      "score": 8016
+    },
+    {
+      "position": 462,
+      "battle_tag": "xiaolu12",
+      "score": 8015
+    },
+    {
+      "position": 463,
+      "battle_tag": "大嘟丨叮咚",
+      "score": 8015
+    },
+    {
+      "position": 464,
+      "battle_tag": "哔哩丶木每木木",
+      "score": 8014
+    },
+    {
+      "position": 465,
+      "battle_tag": "烈酒洗剑弑人间",
+      "score": 8014
+    },
+    {
+      "position": 466,
+      "battle_tag": "top",
+      "score": 8013
+    },
+    {
+      "position": 467,
+      "battle_tag": "御坂12450号",
+      "score": 8013
+    },
+    {
+      "position": 468,
+      "battle_tag": "zuijianSQJ",
+      "score": 8012
+    },
+    {
+      "position": 469,
+      "battle_tag": "诸暨星狩",
+      "score": 8012
+    },
+    {
+      "position": 470,
+      "battle_tag": "彩虹丨北极星",
+      "score": 8012
+    },
+    {
+      "position": 471,
+      "battle_tag": "琉不爱摸鱼",
+      "score": 8012
+    },
+    {
+      "position": 472,
+      "battle_tag": "JustinGary",
+      "score": 8011
+    },
+    {
+      "position": 473,
+      "battle_tag": "喵的演出",
+      "score": 8011
+    },
+    {
+      "position": 474,
+      "battle_tag": "欧之旅",
+      "score": 8011
+    },
+    {
+      "position": 475,
+      "battle_tag": "沉默之风暴",
+      "score": 8010
+    },
+    {
+      "position": 476,
+      "battle_tag": "安德罗妮的学长",
+      "score": 8010
+    },
+    {
+      "position": 477,
+      "battle_tag": "按费排怪贼稳上5",
+      "score": 8009
+    },
+    {
+      "position": 478,
+      "battle_tag": "丶临也",
+      "score": 8009
+    },
+    {
+      "position": 479,
+      "battle_tag": "HaOm",
+      "score": 8009
+    },
+    {
+      "position": 480,
+      "battle_tag": "彩虹丨依古诺",
+      "score": 8009
+    },
+    {
+      "position": 481,
+      "battle_tag": "敲可爱丨仓鼠",
+      "score": 8009
+    },
+    {
+      "position": 482,
+      "battle_tag": "猪猪灾灾",
+      "score": 8008
+    },
+    {
+      "position": 483,
+      "battle_tag": "慌得要死丨杰尼龟",
+      "score": 8008
+    },
+    {
+      "position": 484,
+      "battle_tag": "棋开得胜不可思",
+      "score": 8008
+    },
+    {
+      "position": 485,
+      "battle_tag": "大嘟丨忧郁乌龟",
+      "score": 8008
+    },
+    {
+      "position": 486,
+      "battle_tag": "瓜皮之王",
+      "score": 8008
+    },
+    {
+      "position": 487,
+      "battle_tag": "Jaekun",
+      "score": 8007
+    },
+    {
+      "position": 488,
+      "battle_tag": "坏蛋修勾",
+      "score": 8007
+    },
+    {
+      "position": 489,
+      "battle_tag": "鹿野修哉",
+      "score": 8006
+    },
+    {
+      "position": 490,
+      "battle_tag": "澪音",
+      "score": 8005
+    },
+    {
+      "position": 491,
+      "battle_tag": "彩虹丨九方蠡",
+      "score": 8005
+    },
+    {
+      "position": 492,
+      "battle_tag": "对上我你就完啦",
+      "score": 8005
+    },
+    {
+      "position": 493,
+      "battle_tag": "不要乱倒垃圾",
+      "score": 8005
+    },
+    {
+      "position": 494,
+      "battle_tag": "彩虹丨速八写作业",
+      "score": 8005
+    },
+    {
+      "position": 495,
+      "battle_tag": "床前明月光",
+      "score": 8005
+    },
+    {
+      "position": 496,
+      "battle_tag": "阿朝",
+      "score": 8004
+    },
+    {
+      "position": 497,
+      "battle_tag": "弈星丶听澜",
+      "score": 8004
+    },
+    {
+      "position": 498,
+      "battle_tag": "折木",
+      "score": 8004
+    },
+    {
+      "position": 499,
+      "battle_tag": "那年长街春意正浓",
+      "score": 8003
+    },
+    {
+      "position": 500,
+      "battle_tag": "雨落",
+      "score": 8002
+    }
+  ],
+  "total": 500
+}

@@ -1,0 +1,26 @@
+文件名,来源,可信度
+写周报,KB1软件卡 apps.csv（豆包/Copilot/DeepSeek/Kimi 能力标签：写作、联网搜索）,高（内部KB1）
+做PPT,KB1软件卡 apps.csv（WPS AI/智谱/通义 PPT 能力；豆包写作）,高（内部KB1）
+查资料出对比,KB1软件卡 apps.csv（豆包/Kimi/通义 联网搜索；Kimi 128K 长文本）,高（内部KB1）
+写邮件,KB1软件卡 apps.csv（豆包/Copilot/DeepSeek 写作）,高（内部KB1）
+整理文件归档,KB1软件卡 apps.csv（豆包/Copilot 对话；Kimi 文件解析）,高（内部KB1）
+做表格,KB1软件卡 apps.csv（WPS AI 表格公式；豆包/Copilot）,高（内部KB1）
+润色改写文章,KB1软件卡 apps.csv（豆包/Kimi/DeepSeek 写作；Kimi 128K 长文本）,高（内部KB1）
+翻译,KB1软件卡 apps.csv（豆包/通义/Copilot 写作+联网）,高（内部KB1）
+生成图片,KB1软件卡 apps.csv（豆包/智谱/文心/通义 绘图；豆包已装优先）,高（内部KB1）
+会议纪要,KB1软件卡 apps.csv（豆包/Kimi/通义 对话+写作；Kimi 长文本）,高（内部KB1）
+写方案或提案,KB1 apps.csv（豆包对话/写作、WPS Office文档排版、Kimi文件解析）,高
+写代码或修Bug,KB1 apps.csv（Cursor代码/CLI、DeepSeek代码/深度思考、Claude代码/长文本分析）,高
+总结长文档,KB1 apps.csv（Kimi约128K长文本/文件解析、Claude长文本分析、豆包对话）,高
+头脑风暴与起名,KB1 apps.csv（豆包/ChatGPT/通义千问对话写作能力）,高
+解释概念或学习辅导,KB1 apps.csv（DeepSeek数学推理/深度思考、豆包对话、Kimi文件解析）,高
+写演讲稿,KB1 apps.csv（豆包写作、WPS Office文档、Kimi长文本）,高
+公众号或小红书文案,KB1 apps.csv（豆包写作、Canva在线设计、文心一言写作）,高
+数据分析解读,KB1 apps.csv（WPS Office表格公式、DeepSeek数学推理、豆包写作）,高
+日程与待办整理,KB1 apps.csv（Notion AI笔记/知识库、豆包对话、WPS Office表格）,中（Notion AI未装，路由触发时需先确认安装）
+简历与求职材料,KB1 apps.csv（豆包写作、Kimi文件解析、WPS Office文档排版）,高
+学习外语或背单词,KB1 apps.csv（豆包 skills=对话/写作/联网搜索；腾讯元宝 skills=对话/写作/联网搜索，yuanbao.tencent.com；DeepSeek skills=数学推理，api-docs.deepseek.com）,高
+旅游规划或行程安排,KB1 apps.csv（豆包 skills=联网搜索/写作；腾讯元宝 skills=联网搜索；WPS Office skills=表格公式/文档总结，ai.wps.cn）,高
+健身或健康建议,KB1 apps.csv（豆包 skills=对话/写作；DeepSeek skills=数学推理；Kimi skills=文件解析，platform.kimi.com）,中（健康建议须以官方医学资料为准）
+处理合同或法律文本,KB1 apps.csv（Kimi skills=文件解析/对话/写作；DeepSeek skills=数学推理；豆包 skills=写作）,中（合同/法律须律师复核）
+写短视频脚本,KB1 apps.csv（豆包 skills=写作/视频生成；腾讯元宝 skills=联网搜索；即梦 skills=分镜/视频生成，jimeng.jianying.com）,高

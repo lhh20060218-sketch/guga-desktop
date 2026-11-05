@@ -1,0 +1,46 @@
+{
+  "revision": "2026-10-20-current-client-cards-2",
+  "checked_on": "2026-10-20",
+  "coverage": "Verified patch facts for model context only; not a complete rules engine or card-pool certification.",
+  "client_patch_reference": "37.0.0.255130",
+  "battlegrounds_balance_reference": "36.6.3",
+  "facts": [
+    {
+      "claim": "36.6.3 将 Deity 的召唤条件调整为每场战斗四次友方 Aberration 死亡。",
+      "source": "https://hearthstone.blizzard.com/en-us/news/24303864/36-6-3-patch-notes"
+    },
+    {
+      "claim": "36.6.3 取消 Aberration 必定出现在每个大厅的安排。",
+      "source": "https://hearthstone.blizzard.com/en-us/news/24303864/36-6-3-patch-notes"
+    },
+    {
+      "claim": "36.6 的介绍说明加入 Aberration 时娜迦暂时轮换；后续是否回归应继续核对补丁。",
+      "source": "https://hearthstone.blizzard.com/en-us/news/24294373"
+    },
+    {
+      "claim": "36.2 起烈毒在每个战斗首次受到其实际伤害的随从上触发，攻击者同归于尽也照常摧毁目标；圣盾抵消时不触发。",
+      "source": "https://news.blizzard.com/en-us/article/24290433/announcing-battlegrounds-season-14-dark-gifts-of-dalaran"
+    },
+    {
+      "claim": "当前卡牌知识快照为客户端补丁37.0.0.255130；池标志不等于本局种族池。",
+      "source": "HearthSim/hsdata@e456d49d2147358dec6764cffb963c8e8d748d12"
+    }
+  ],
+  "engine_profile": "hsrl2-rich-spell-position-v2 (offline only)",
+  "engine_limits": [
+    "Old 36.2.2 gameplay/data profile; not the 37.0 live patch",
+    "Neutral heroes; no hero powers",
+    "Spell targeting/discover/choose-one use a fixed non-learned helper",
+    "No complete tavern spell pool rotation",
+    "Not a live win-rate or ladder-strength estimate"
+  ],
+  "card_snapshot": {
+    "source": "HearthSim/hsdata",
+    "revision": "e456d49d2147358dec6764cffb963c8e8d748d12",
+    "file": "data/bg_agent/cards_37.json",
+    "pool_minions": 303,
+    "pool_spells": 76,
+    "sha256": "d62b6a06a8aa3de05cf1cc51f960f6ea21344e6551c025e60c347ca91b1c761b",
+    "limitation": "Client definitions, not server pool or complete executable effects"
+  }
+}

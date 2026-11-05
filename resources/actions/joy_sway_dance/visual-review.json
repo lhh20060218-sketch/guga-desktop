@@ -1,0 +1,6 @@
+{
+  "status": "rejected",
+  "reviewer": "user-feedback-2026-11-02",
+  "reason": "用户否定：动作奇怪、不自然。两张姿势局部形变无法提供连贯关节动作，禁止进入正式播放。",
+  "checks": {"identity": false, "continuous_motion": false, "no_ghosts": false, "anatomy": false, "loop_seam": false}
+}

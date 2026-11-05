@@ -1,0 +1,28 @@
+{
+  "name": "heart",
+  "frames": 239,
+  "native_fps": 24.0,
+  "canvas": [
+    245,
+    352
+  ],
+  "weight": 1.0,
+  "normalization": {
+    "source_canvas": [
+      480,
+      640
+    ],
+    "body_height": 344,
+    "median_source_height": 612,
+    "scale": 0.562092,
+    "baseline": 350,
+    "edge_clipped_frames": 63
+  },
+  "source_label": "用户提供的豆包生成动画",
+  "source_start": 0.04,
+  "requested_seconds": 9.96,
+  "matte": "u2netp",
+  "interpolation": false,
+  "crossfade": false,
+  "redistribution": "user supplied; no external redistribution authorization recorded"
+}

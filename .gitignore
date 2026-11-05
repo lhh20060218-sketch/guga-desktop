@@ -1,0 +1,57 @@
+# ================= 凭据（绝不入库） =================
+ai_config.json
+ai_config.json.tmp
+.env
+*.key
+*.pem
+id_rsa*
+
+# ================= 运行时数据（含真实用户/任务/证据，不入库） =================
+cloud/data/
+runtime/
+*.log
+pet_debug.log
+pet_3d.log
+startup.log
+
+# ================= 桌面执行本体：编译产物与本地证据截图 =================
+agent/dist/
+agent/build/
+agent/evidence/
+agent/__pycache__/
+# ================= 桌宠 exe 打包产物（走 GitHub Release，不进仓库） =================
+dist/
+build/
+*.exe
+*.spec.bak
+
+# ================= Python =================
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+.venv/
+venv/
+env/
+
+# ================= Node =================
+node_modules/
+npm-debug.log*
+
+# ================= 本地临时与备份 =================
+*.bak
+*.bak_*
+*.broken
+*.final.bak
+_tts_test/
+pet_shot.png
+Thumbs.db
+.DS_Store
+
+# ================= IDE =================
+.vscode/
+.idea/
+*.swp
+
+# ================= 参赛无关素材红线：不使用任何第三方商业 IP / DeepSeek 二创 =================
+resources/multiagent/dafish/

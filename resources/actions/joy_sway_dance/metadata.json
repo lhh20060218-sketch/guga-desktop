@@ -1,0 +1,19 @@
+{
+  "name": "joy_sway_dance",
+  "method": "single-exposure layered warp; no optical-flow compositing",
+  "source": "body_open/body_closed",
+  "frames": 125,
+  "fps": 25,
+  "seconds": 5.0,
+  "canvas": [
+    384,
+    552
+  ],
+  "foot_baseline": [
+    520,
+    536
+  ],
+  "clipped_frames": 0,
+  "ghost_prevention": "each output frame samples exactly one source pose per pixel; expression changes are discrete",
+  "installed": true
+}

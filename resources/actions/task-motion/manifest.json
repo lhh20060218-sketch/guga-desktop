@@ -1,0 +1,72 @@
+{
+  "schema": 1,
+  "states": {
+    "thinking": {
+      "frames": "asking/frames",
+      "native_fps": 24,
+      "cache": {"strategy": "lru", "max_frames": 48},
+      "note": "反问/思考：托腮歪头"
+    },
+    "working": {
+      "frames": "watching/frames",
+      "native_fps": 24,
+      "cache": {"strategy": "lru", "max_frames": 48},
+      "note": "监工中：盯进度环"
+    },
+    "waiting": {
+      "frames": "commanding/frames",
+      "native_fps": 24,
+      "cache": {"strategy": "lru", "max_frames": 48},
+      "note": "等待/调度：指挥姿态"
+    },
+    "result": {
+      "frames": "reviewing/frames",
+      "native_fps": 24,
+      "cache": {"strategy": "lru", "max_frames": 48},
+      "note": "验收中：持镜核对"
+    },
+    "success": {
+      "frames": "celebrating/frames",
+      "native_fps": 24,
+      "cache": {"strategy": "lru", "max_frames": 48},
+      "note": "验收通过：张开双鳍庆祝（一次性）"
+    },
+    "error": {
+      "frames": "error/frames",
+      "native_fps": 24,
+      "cache": {"strategy": "lru", "max_frames": 48},
+      "note": "出错：挠头尴尬（一次性）"
+    },
+    "accept": {
+      "frames": "accept/frames",
+      "native_fps": 24,
+      "cache": {"strategy": "lru", "max_frames": 48},
+      "note": "事件·接旨领命（comp_window 派单成功直触）"
+    },
+    "reject": {
+      "frames": "reject/frames",
+      "native_fps": 24,
+      "cache": {"strategy": "lru", "max_frames": 48},
+      "note": "事件·打回退件（comp_window 台账打回直触）"
+    },
+    "urge": {
+      "frames": "urge/frames",
+      "native_fps": 24,
+      "cache": {"strategy": "lru", "max_frames": 48},
+      "note": "事件·催办敲板（comp_window 催办直触，可循环）"
+    },
+    "pet": {
+      "frames": "pet/frames",
+      "native_fps": 24,
+      "cache": {"strategy": "lru", "max_frames": 48},
+      "note": "事件·被摸头（点击形象直触）"
+    },
+    "hello": {
+      "frames": "hello/frames",
+      "native_fps": 24,
+      "cache": {"strategy": "lru", "max_frames": 48},
+      "note": "事件·打招呼（登录/上线直触）"
+    }
+  },
+  "note": "2026-11-06 dz3 批 12 动作接入（tools/make_action_pack.py 管线产出 WebP 384x672@24fps）。six poll states(thinking/working/waiting/result/success/error) 由 TaskAnimationDirector 驱动；accept/reject/urge/pet/hello 为事件 clip，由 comp_window 按云端事件直触。全部经 visual-review.json 审查（frames_sha256 绑定）。"
+}

@@ -1,0 +1,113 @@
+文件名,来源,可信度
+豆包,本机实测（进程 Doubao.exe；路径 D:\豆包\；注册表 DisplayVersion=2.25.16；开始菜单 .lnk）,本机实测
+豆包,https://www.doubao.com/chat,官网
+豆包,https://www.volcengine.com/docs/82379/1330310,官方文档
+豆包,豆包帮助中心（登录方式：手机号验证码、抖音账号全端、Apple 仅 iOS）,官方帮助中心
+Microsoft Copilot,本机实测（进程 copilotapp；路径 C:\Program Files (x86)\Microsoft\Copilot\Application\；注册表版本 156.0.4314.58）,本机实测
+Microsoft Copilot,https://copilot.microsoft.com/,官网
+Microsoft Copilot,https://account.microsoft.com/account/Account,官方文档
+WPS Office,https://ai.wps.cn/,官网
+WPS Office,https://www.lcu.edu.cn/ztzx/tzgg/2c21c981ab6c461885dde4e45a89cca7.htm,官方合作公告（教育版）
+WPS Office,本机实测（2026-11-03 复核：已安装；安装目录 %LOCALAPPDATA%\kingsoft\WPS Office；启动器 ksolaunch.exe 12.2.0.23196；winget Kingsoft.WPSOffice=12.2.0.23196；此前「全盘未检出」记录已过时，系安装时间晚于旧记录；ProgramData 下 WPS Office.lnk 仍为联想应用商店磁贴 LeASDyTile.exe）,本机实测
+Cursor,https://www.cursor.com/,官网
+Cursor,https://docs.cursor.com/terminal,官方文档
+Cursor,第三方教程交叉验证登录方式（邮箱+验证码、GitHub、Google）,待真机核对
+Kimi,https://www.kimi.com/zh-cn/help/kimi-api/api-account-and-auth,官网帮助中心
+Kimi,https://platform.kimi.com/docs/api/overview,官方文档
+Kimi,https://www.kimi.com/products/download,官网
+DeepSeek,https://api-docs.deepseek.com/zh-cn/index.html,官方文档
+DeepSeek,https://www.deepseek.com/download,官网
+DeepSeek,https://cloud.tencent.com/developer/article/2727785（第三方教程，登录方式已由官网登录页截图替代验证 2026-11-03）,已由本机实测替代
+智谱清言,https://docs.bigmodel.cn/cn/guide/start/quick-start,官方文档
+智谱清言,https://chatglm.cn/download,官网
+智谱清言,https://soft.china.com/article/1114571.html（第三方软件站，桌面端 exe 已由本机实测替代 2026-11-03）,已由本机实测替代
+文心一言,https://qianfan.readthedocs.io/en/stable/index.html,官方文档
+文心一言,https://wenxinyiyan.apifox.cn/api-125213017,官方文档
+文心一言,https://m.yesky.com/pcsoft/289170.html（第三方下载站，桌面端 exe 已由本机实测替代 2026-11-03）,已由本机实测替代
+通义千问,https://help.aliyun.com/zh/model-studio/first-api-call-to-qwen,官方文档
+通义千问,https://terms.alicdn.com/legal-agreement/terms/privacy_policy_full/20231011201849846/20231011201849846.html,官方文档
+通义千问,https://help.aliyun.com/zh/qwenwork/desktop-usage,官方文档
+腾讯元宝,https://privacy.qq.com/document/preview/eb9be56572ab4886b6ca124e72abf413,官方文档
+腾讯元宝,https://cloud.tencent.com.cn/product/tclm,官方文档
+腾讯元宝,https://yuanbao.tencent.com/evt/dl,官网
+腾讯元宝,https://wingetgui.com/apps/Tencent-Yuanbao（第三方索引站，桌面端 exe 已由本机实测替代 2026-11-03）,已由本机实测替代
+豆包,本机实测（2026-11-03 复核：进程 Doubao 运行中；运行体 D:\豆包\Doubao\app\Doubao.exe FileVersion 147.0.7727.149；启动器 2.32.6；注册表 2.25.16；快捷方式 豆包.lnk→Doubao.exe）,本机实测
+豆包,本机实测（官网截图 knowledge/截图/豆包-1.png：已登录会话页）,本机实测（截图）
+Microsoft Copilot,本机实测（2026-11-03 复核：进程 copilotapp 运行中；版本 156.0.4314.58；无开始菜单快捷方式）,本机实测
+Microsoft Copilot,本机实测（官网截图 knowledge/截图/Copilot-1.png：ERR_CONNECTION_RESET 错误页，网页版未能打开）,本机实测（截图）
+WPS Office,本机实测（官网截图 knowledge/截图/WPS Office-1.png：wps.cn 营销主页）,本机实测（截图）
+Cursor,本机实测（2026-11-03 复核：已安装；%LOCALAPPDATA%\Programs\cursor\Cursor.exe 3.27.12；winget Anysphere.Cursor=3.27.12；快捷方式 Cursor\Cursor.lnk）,本机实测
+Cursor,本机实测（官网截图 knowledge/截图/Cursor-1.png：官网营销页，登录/下载按钮可见）,本机实测（截图）
+Kimi,本机实测（2026-11-03 复核：已安装；%LOCALAPPDATA%\Programs\Kimi\Kimi.exe 3.2.23.24；winget MoonshotAI.Kimi=3.2.23；快捷方式 Kimi.lnk）,本机实测
+Kimi,本机实测（官网截图 knowledge/截图/Kimi-1.png：官网首页，登录按钮可见，未登录）,本机实测（截图）
+DeepSeek,本机实测（2026-11-03 复核：已安装；D:\新建文件夹 (2)\DeepSeek Harness.exe 0.2.1-rc.5；快捷方式 DeepSeek Harness.lnk）,本机实测
+DeepSeek,本机实测（官网截图 knowledge/截图/DeepSeek-1.png：登录页可见手机号+86验证码/密码/Apple/微信扫码）,本机实测（截图）
+智谱清言,本机实测（2026-11-03 复核：已安装；%LOCALAPPDATA%\ZP\chatglm\智谱清言.exe 2.0.7；winget ZhipuAI.ChatGLM=2.0.7；快捷方式 智谱清言.lnk）,本机实测
+智谱清言,本机实测（官网截图 knowledge/截图/智谱清言-1.png：主页可见 AI画图/AI阅读/AI生视频/AgentMore/云知识库入口）,本机实测（截图）
+文心一言,本机实测（2026-11-03 复核：进程 文心 运行中；C:\Program Files\wenxin\文心.exe 3.3.6；快捷方式 文心\文心.lnk）,本机实测
+文心一言,本机实测（官网截图 knowledge/截图/文心一言-1.png：yiyan.baidu.com 跳转 wenxin.baidu.com 百度文心助手，未登录）,本机实测（截图）
+通义千问,本机实测（2026-11-03 复核：已安装；%LOCALAPPDATA%\Programs\Qianwen\Qianwen.exe 2.3.1；winget Alibaba.Qianwen=2.3.1；快捷方式 千问\千问.lnk）,本机实测
+通义千问,本机实测（官网截图 knowledge/截图/通义千问-1.png：tongyi.aliyun.com 跳转 qianwen.aliyun.com 双11营销页）,本机实测（截图）
+腾讯元宝,本机实测（2026-11-03 复核：进程 yuanbao 运行中；C:\Program Files\Tencent\Yuanbao\yuanbao.exe 2.91.0.607；winget Tencent.Yuanbao=2.91.0.607；快捷方式 ProgramData 元宝\元宝.lnk）,本机实测
+腾讯元宝,本机实测（官网截图 knowledge/截图/腾讯元宝-1.png：已登录会话页，登录面板可见微信/手机/QQ）,本机实测（截图）
+（说明：进程证据来源）,2026-11-03 十款软件进程/版本/安装路径证据均来自本机 PowerShell Get-Process/Get-Item/注册表 Uninstall 键/快捷方式解析/winget list 实测；任务管理器进程页截图因桌面 GUI（cu 平面）不可用未做，未使用 GUI 截图,本机实测
+秘塔AI搜索,https://metaso.cn/h5-login,官网
+秘塔AI搜索,https://metaso.cn/search-api/api-keys,官方文档
+秘塔AI搜索,https://metaso.cn/api/openai,官方文档
+即梦,https://jimeng.jianying.com/ai-tool/install,官网
+即梦,https://docs.volcengine.com/docs/JimengAI/QuickStart,官方文档
+即梦,https://jimeng.jianying.com/ai-tool/login,官网
+可灵,https://app.klingai.com/cn/dev/document-api/quickStart/productIntroduction/overview,官方文档
+可灵,https://kling.ai/document-api/guides/capability-map/video.md,官方文档
+可灵,https://zenmewen.com/ai_tools/klingai1.html,待真机核对（第三方佐证）
+Gamma,https://gamma.app/zh-cn/products/api,官网
+Gamma,https://gamma.app/zh-tw/explore/content/guides/ai-content-creation-api-automation,官方文档
+Gamma,https://help.gamma.app/zh-CN/articles/13943863,官方帮助中心
+Canva,https://www.canva.dev/,官方文档
+Canva,https://canva-connect-api.apidocumentation.com/,官方文档
+Canva,https://community.canva.dev/t/connect-api-image-generation-now-available-in-preview/8931,官方社区
+Notion AI,https://www.notion.com/zh-cn/help/log-in-and-out,官方帮助中心
+Notion AI,https://app.notion.com/,官网
+Notion AI,https://developers.notion.com,官方文档
+ChatGPT,https://chatgpt.com,官网
+ChatGPT,https://platform.openai.com,官方文档
+ChatGPT,桌面端 Windows/Mac/Linux 全平台（多源新闻确认）,待真机核对
+Claude,https://claude.ai,官网
+Claude,https://console.anthropic.com,官方文档
+Claude,登录方式邮箱验证码/Google（多篇注册教程佐证）,待真机核对
+Google Gemini,https://gemini.google.com,官网
+Google Gemini,https://ai.google.dev/gemini-api/docs/oauth,官方文档
+Google Gemini,https://aistudio.google.com,官网
+Perplexity,https://www.perplexity.ai,官网
+Perplexity,https://docs.perplexity.ai,官方文档
+Perplexity,登录方式 Google/Apple/SSO/邮箱免密（第三方佐证）,待真机核对
+Suno,本机实测（2026-11-03 探测：无进程/无快捷方式/无目录/注册表与winget仅见Microsoft Copilot/扩展目录无匹配）,本机实测
+Suno,https://suno.com,官网
+Suno,登录方式 Google/Discord/邮箱及国内访问稳定性（第三方教程佐证）,待真机核对
+Midjourney,本机实测（2026-11-03 探测同 Suno）,本机实测
+Midjourney,https://www.midjourney.com,官网
+Midjourney,https://docs.midjourney.com,官方文档
+Poe,本机实测（2026-11-03 探测同 Suno）,本机实测
+Poe,https://poe.com,官网
+Poe,https://poe.com API（开发者Bot平台，可程序化调用平台内模型）,官方文档
+Grok,本机实测（2026-11-03 探测同 Suno）,本机实测
+Grok,https://grok.com,官网
+Grok,https://docs.x.ai（Grok API，OpenAI兼容端点）,官方文档
+GitHub Copilot,本机实测（2026-11-03 探测：VS Code/Cursor 扩展目录无 copilot 扩展、无独立卸载项）,本机实测
+GitHub Copilot,https://github.com/features/copilot,官网
+GitHub Copilot,https://github.com/github/copilot-cli（npm @github/copilot-cli / gh copilot）,官方文档
+通义灵码,本机实测（2026-11-03 探测：扩展目录无 lingma）,本机实测
+通义灵码,https://tongyi.aliyun.com/lingma,官网
+通义灵码,https://lingma.aliyun.com（独立 Lingma IDE 下载）,官网
+腾讯混元,本机实测（2026-11-03 探测同 Suno）,本机实测
+腾讯混元,https://hunyuan.tencent.com,官网
+腾讯混元,https://cloud.tencent.com/product/hunyuan（混元大模型API）,官方文档
+NotebookLM,本机实测（2026-11-03 探测同 Suno）,本机实测
+NotebookLM,https://notebooklm.google.com,官网
+NotebookLM,无公开API/CLI判定依据：官方产品页无开发者入口，纯网页产品,中
+Ollama,本机实测（2026-11-03 探测：ollama 命令不在 PATH、无进程/快捷方式/目录）,本机实测
+Ollama,https://ollama.com,官网
+Ollama,本地 REST API localhost:11434（OpenAI兼容）及 CLI ollama pull/run/list,官方文档
+Runway,本机实测（2026-11-03 探测同 Suno）,本机实测
+Runway,https://runwayml.com,官网
+Runway,https://docs.dev.runwayml.com（文生视频/图生视频API）,官方文档

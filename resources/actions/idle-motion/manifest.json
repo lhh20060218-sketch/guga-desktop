@@ -1,0 +1,18 @@
+{
+  "schema": 1,
+  "clips": [
+    {
+      "name": "doze",
+      "frames": "doze/frames",
+      "native_fps": 30.0,
+      "weight": 0.8
+    },
+    {
+      "name": "heart",
+      "frames": "heart/frames",
+      "native_fps": 30.0,
+      "weight": 1.0
+    }
+  ],
+  "note": "新形象（女孩+企鹅管家）逐帧真动作；30fps 原生帧，源自重制后的绿幕视频离线抠像。"
+}

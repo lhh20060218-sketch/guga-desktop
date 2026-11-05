@@ -1,0 +1,26 @@
+{
+  "schema": 2,
+  "status": "approved",
+  "reviewer": "user / local transition preview",
+  "playback": "once",
+  "frames_sha256": "2979500ec70609e5ab6dd4027640e74acf7ab4835b545689a68345870b733607",
+  "checks": {
+    "identity": false,
+    "identity_variation_accepted": true,
+    "continuous_motion": true,
+    "no_ghosts": true,
+    "anatomy": true,
+    "loop_seam": false,
+    "transition_variation_accepted": true
+  },
+  "user_approval": {
+    "by": "user",
+    "quote": "执行吧，这个动作层面我觉得是ok的",
+    "scope": "look-up-step-v3 including the displayed resident transition"
+  },
+  "notes": [
+    "Appearance variation was shown and accepted; no claim of exact identity",
+    "One-shot only: different endpoints must never be labelled a seamless loop"
+  ],
+  "note": "2026-11-06 新形象：绿幕离线抠像、硬边 alpha、统一裁剪框放大；帧摘要已重算。"
+}

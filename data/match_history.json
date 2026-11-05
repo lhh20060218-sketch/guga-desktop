@@ -1,0 +1,36 @@
+{
+  "history": [
+    {
+      "result": "loss",
+      "place": null,
+      "turns": 14,
+      "ts": 1792737839
+    },
+    {
+      "result": "loss",
+      "place": 4,
+      "turns": 22,
+      "ts": 1792744278
+    },
+    {
+      "result": "loss",
+      "place": null,
+      "turns": 20,
+      "ts": 1792745693
+    },
+    {
+      "result": "loss",
+      "place": 7,
+      "turns": 20,
+      "ts": 1792745799,
+      "game_key": "5eaa20c602d0009cb27a1f0f"
+    },
+    {
+      "result": "loss",
+      "place": 3,
+      "turns": 24,
+      "ts": 1792998775,
+      "game_key": "6598897f3879b37dcc16450a"
+    }
+  ]
+}
