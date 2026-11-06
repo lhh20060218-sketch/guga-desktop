@@ -162,13 +162,10 @@ class SpriteAnimator:
         # 源小于物理目标时保持源尺寸不放大(交给 GPU 一次采样), 避免放大糊上叠糊.
         for expr, pm in self._sprites.items():
             phys_w, phys_h = max(1, round(ref_w * dpr)), max(1, round(ref_h * dpr))
-            if pm.width() >= phys_w:
-                scaled = pm.scaled(phys_w, phys_h, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-                s_lw, s_lh = round(scaled.width() / dpr), round(scaled.height() / dpr)
-            else:
-                # 源达不到物理目标: 保持原样不放大, 逻辑尺寸=源尺寸
-                scaled = pm
-                s_lw, s_lh = pm.width(), pm.height()
+            # 2026-11-06 二次修: 恒定缩放到物理目标(源小时平滑上采一次, 交给单次插值),
+            # 保证逻辑尺寸恒等于 _dw/_dh——源图原样保留会造成画布溢出→头部被裁.
+            scaled = pm.scaled(phys_w, phys_h, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            s_lw, s_lh = round(scaled.width() / dpr), round(scaled.height() / dpr)
             canvas = QPixmap(phys_w, phys_h)
             canvas.fill(Qt.transparent)
             canvas.setDevicePixelRatio(dpr)
@@ -568,14 +565,13 @@ class SpriteAnimator:
         qimg = QImage(data, pil_img.width, pil_img.height, QImage.Format_RGBA8888)
         pm = QPixmap.fromImage(qimg)
         # 2026-11-06 修糊: 只重采样一次到物理像素(逻辑×DPR)并标记 DPR,
-        # 屏幕上 1:1 物理呈现; 源小于目标时不放大.
+        # 屏幕上 1:1 物理呈现; 恒定缩放保证逻辑尺寸=_dw/_dh(防画布溢出裁头).
         dpr = self._dpr
         phys_w, phys_h = max(1, round(self._dw * dpr)), max(1, round(self._dh * dpr))
-        if pm.width() >= phys_w:
-            scale = min(phys_w / max(1, pm.width()), phys_h / max(1, pm.height()))
-            pm = pm.scaled(int(pm.width() * scale), int(pm.height() * scale),
-                           Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            pm.setDevicePixelRatio(dpr)
+        scale = min(phys_w / max(1, pm.width()), phys_h / max(1, pm.height()))
+        pm = pm.scaled(int(pm.width() * scale), int(pm.height() * scale),
+                       Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        pm.setDevicePixelRatio(dpr)
         return pm
 
     def play_sticker(self, name):
@@ -767,10 +763,12 @@ class SpriteAnimator:
                 self.temporary_expression(random.choice(['playful', 'surprised', 'happy']),
                                           random.uniform(1.0, 2.2))
 
-        # ---- 随机小动作（让企鹅活起来）----
-        if (not self._task_motion.active and random.random() < 0.024*dt and self.expression == "normal" and
+        # ---- 随机小憩: 旧逻辑 set_expression('sleepy') 会闩死到用户点击为止
+        # (sleep is latched)——测试机观感就是"挂机后永远不动". 改为 6~10s
+        # 自恢复小憩, 且频率减半. ----
+        if (not self._task_motion.active and random.random() < 0.012*dt and self.expression == "normal" and
                 self.action == "none" and self._clip in (None,'idle')):
-            self.set_expression('sleepy')
+            self.temporary_expression('sleepy', random.uniform(6.0, 10.0))
 
         # 随机小动作：空闲时偶尔蹦一下/偷看（保持动态）
         if (not self._task_motion.active and self.expression != 'sleepy' and
@@ -1048,18 +1046,20 @@ class SpriteAnimator:
         # Continuous mesh warp: head moves, deformation fades through the neck,
         # and the lower body remains anchored. Uses the existing transparent art.
         width,height=self._logical_size(pm)
+        _pd = pm.devicePixelRatio() or 1.0  # 源矩形按设备像素取, 目标矩形按逻辑坐标
         for row in range(0,height,2):
             ratio=row/height
             weight=1.0 if ratio<.39 else max(0,min(1,(.66-ratio)/.27))
             weight=weight*weight*(3-2*weight)
             if weight==0:
-                p.drawPixmap(QRectF(x,y+row,width,height-row),pm,QRectF(0,row,width,height-row))
+                p.drawPixmap(QRectF(x,y+row,width,height-row),pm,
+                             QRectF(0,row*_pd,pm.width(),(height-row)*_pd))
                 break
             dx=self.head_yaw*width*.038*weight+self.head_tilt*(height*.34-row)*.10*weight
             dy=self.head_nod*height*.017*weight
             scale=1-.055*abs(self.head_yaw)*weight
             target=QRectF(x+dx+width*(1-scale)/2,y+row+dy,width*scale,min(3,height-row))
-            p.drawPixmap(target,pm,QRectF(0,row,width,min(3,height-row)))
+            p.drawPixmap(target,pm,QRectF(0,row*_pd,pm.width(),min(3,height-row)*_pd))
 
     def _draw_thinking_flipper(self,p,x,y,w,h):
         blend=self._hand_blend
