@@ -17,7 +17,7 @@ from PyQt5.QtWidgets import (
 )
 
 from ui.bongo_panel import BongoPanel
-from ui.sprite_animator import SpriteAnimator
+from ui.sprite_animator import SpriteAnimator, adaptive_display_width
 from ui.tts_engine import TTSEngine
 from ui.speech_system import get_speech, SPEECHES
 from core.ai_chat import AIChatEngine, ANALYSIS_OVERRIDE, WINRATE_OVERRIDE, OUTLOOK_OVERRIDE
@@ -87,7 +87,7 @@ class PetWindow(QWidget):
         # Appearance is independent of AI credentials and task execution.
         # Both backends have the same logical canvas; switching keeps bubbles.
         self._anim3d = None
-        self._anim2d = SpriteAnimator(self.RES_DIR, display_width=250)
+        self._anim2d = SpriteAnimator(self.RES_DIR, display_width=adaptive_display_width())
         self._anim = self._anim2d
         self._appearance_error = ''
         self._set_avatar_mode('illustration' if '--avatar-2d' in sys.argv else self._config.avatar_mode,

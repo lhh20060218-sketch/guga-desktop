@@ -15,7 +15,7 @@ from PyQt5.QtCore import Qt, QPoint, QTimer
 from PyQt5.QtGui import QPainter, QColor, QFont
 from PyQt5.QtWidgets import QWidget, QMenu, QLineEdit, QApplication
 
-from ui.sprite_animator import SpriteAnimator
+from ui.sprite_animator import SpriteAnimator, adaptive_display_width
 from ui.tts_engine import TTSEngine
 from core.ai_chat import AIChatEngine
 from ui.butler_attach import ButlerRuntime
@@ -27,7 +27,7 @@ from ui.control_badge import ControlBadge
 
 logger = logging.getLogger(__name__)
 
-WIN_W, WIN_H = 320, 430          # 窗体尺寸(容纳 260px 显示宽的立绘)
+WIN_W, WIN_H = 320, 430          # 最大窗体尺寸(容纳 260px 显示宽的立绘)
 BUBBLE_SECS = 8                  # 气泡停留秒数
 
 
@@ -40,10 +40,14 @@ class CompWindow(QWidget):
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint
                             | Qt.Tool)
         self.setAttribute(Qt.WA_TranslucentBackground, True)
-        self.setFixedSize(WIN_W, WIN_H)
 
         # --- 表现层: 占位立绘(素材到位后整体替换) ---
-        self._anim = SpriteAnimator(str(_res_dir()), display_width=260)
+        # 2026-11-06 治"太大": 显示宽按主屏高度自适应(1080p≈216, 小屏 150 兜底)
+        self._anim = SpriteAnimator(str(_res_dir()), display_width=adaptive_display_width())
+        # 窗体随形象尺寸走(底部输入框/气泡/默认落点全部引用实例属性)
+        self._win_w = max(220, self._anim.width + 60)
+        self._win_h = max(320, self._anim.height + 110)
+        self.setFixedSize(self._win_w, self._win_h)
         self._anim_offset = QPoint(10, 60)
         self._pet_scale = 1.0
 
@@ -104,12 +108,13 @@ class CompWindow(QWidget):
     # ==================== 素材/启动 ====================
 
     def _start_idle(self):
-        # 优先播 120 帧新形象待机(idle-motion/doze), 而不是 armor/butler/doze
-        # 的 8 帧旧占位 —— 后者 30fps 下 0.27s 一循环, 肉眼看就是静止.
+        # 2026-11-06 治"不动": doze 是 one-shot 审查单, 旧代码 loop=True 实际
+        # 被闸门否定——播 5s 就永久静止. 改为一次性开场(播完由 idle 动画链
+        # 自动接续随机下一条), 不再伪装循环.
         try:
             if 'idle:doze' in self._anim.clips:
-                self._anim.play_clip('idle:doze', loop=True)
-                logger.info('comp idle started: 120-frame idle:doze')
+                self._anim.play_clip('idle:doze')
+                logger.info('comp idle started: one-shot idle:doze, chain takes over')
                 return
         except Exception:
             logger.exception('idle:doze failed, fallback to armor doze')
@@ -126,7 +131,7 @@ class CompWindow(QWidget):
         screen = QApplication.primaryScreen()
         if screen:
             g = screen.availableGeometry()
-            self.move(g.right() - WIN_W - 40, g.bottom() - WIN_H - 20)
+            self.move(g.right() - self._win_w - 40, g.bottom() - self._win_h - 20)
 
     # ==================== ButlerRuntime 需要的接口 ====================
 
@@ -180,8 +185,8 @@ class CompWindow(QWidget):
                         border: 1px solid #b8bcc7; border-radius: 10px;
                         padding: 6px 12px; font-size: 13px;
                         font-family: "Microsoft YaHei UI"; }""")
-        box.setFixedSize(WIN_W - 40, 34)
-        box.move(20, WIN_H - 44)
+        box.setFixedSize(self._win_w - 40, 34)
+        box.move(20, self._win_h - 44)
         box.returnPressed.connect(lambda: self._send(box))
         box.installEventFilter(self)
         box.show()
@@ -392,7 +397,7 @@ class CompWindow(QWidget):
         font = QFont('Microsoft YaHei UI', 10)
         p.setFont(font)
         fm = p.fontMetrics()
-        max_w = WIN_W - 60
+        max_w = self._win_w - 60
         # 简易换行
         lines, line = [], ''
         for ch in text:
@@ -406,7 +411,7 @@ class CompWindow(QWidget):
         lines = lines[:5]
         bw = max(fm.horizontalAdvance(t) for t in lines) + 28
         bh = fm.height() * len(lines) + 20
-        bx, by = (WIN_W - bw) // 2, 6
+        bx, by = (self._win_w - bw) // 2, 6
         p.setPen(Qt.NoPen)
         p.setBrush(QColor(255, 255, 255, 242))
         p.drawRoundedRect(bx, by, bw, bh, 12, 12)

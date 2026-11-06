@@ -15,6 +15,24 @@ from PyQt5.QtCore import Qt, QPointF, QRectF, QTimer
 from PyQt5.QtGui import QPixmap, QPainter, QColor, QPen, QPainterPath, QRadialGradient, QLinearGradient
 
 
+def adaptive_display_width(min_w=150, max_w=260, height_ratio=0.30):
+    """2026-11-06 治"太大": 按主屏可用高度自适应形象显示宽.
+
+    形象画布宽高比约 227:326(高≈1.44×宽), 目标是形象高占屏 30% 左右
+    (dsh-pet 观感). 1080p → 宽≈216; 2K → 260 封顶; 768 小屏 → 150 兜底.
+    """
+    try:
+        from PyQt5.QtGui import QGuiApplication
+        scr = QGuiApplication.primaryScreen()
+        if scr is None:
+            return max_w
+        h = scr.availableGeometry().height()
+        w = round(h * height_ratio / 1.44)
+        return max(min_w, min(max_w, w))
+    except Exception:
+        return max_w
+
+
 class LazyFrameSequence:
     """Sequential frame cache with per-clip policy (M0).
 
@@ -96,6 +114,12 @@ class SpriteAnimator:
         self._tap_elapsed = 1.0
         self._tap_amount = .92
         self._dw = display_width
+        try:
+            from PyQt5.QtGui import QGuiApplication
+            _scr = QGuiApplication.primaryScreen()
+            self._dpr = max(1.0, float(_scr.devicePixelRatio())) if _scr else 1.0
+        except Exception:
+            self._dpr = 1.0
 
         self._sprites = {}
         self._src_size = None
@@ -132,14 +156,26 @@ class SpriteAnimator:
         self._dw, self._dh = ref_w, ref_h
 
         self._scaled = {}
+        dpr = self._dpr
+        # 2026-11-06 修糊: 源图只重采样一次到"物理像素"尺寸(逻辑尺寸×DPR),
+        # 再用 setDevicePixelRatio 标记——杜绝旧实现的"源→逻辑→DPR 再拉伸"双重采样.
+        # 源小于物理目标时保持源尺寸不放大(交给 GPU 一次采样), 避免放大糊上叠糊.
         for expr, pm in self._sprites.items():
-            scaled = pm.scaled(ref_w, ref_h, Qt.KeepAspectRatio, Qt.SmoothTransformation)
-            canvas = QPixmap(ref_w, ref_h)
+            phys_w, phys_h = max(1, round(ref_w * dpr)), max(1, round(ref_h * dpr))
+            if pm.width() >= phys_w:
+                scaled = pm.scaled(phys_w, phys_h, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                s_lw, s_lh = round(scaled.width() / dpr), round(scaled.height() / dpr)
+            else:
+                # 源达不到物理目标: 保持原样不放大, 逻辑尺寸=源尺寸
+                scaled = pm
+                s_lw, s_lh = pm.width(), pm.height()
+            canvas = QPixmap(phys_w, phys_h)
             canvas.fill(Qt.transparent)
+            canvas.setDevicePixelRatio(dpr)
             cp = QPainter(canvas)
             cp.setRenderHint(QPainter.SmoothPixmapTransform, True)
-            x = (ref_w - scaled.width()) // 2
-            y = (ref_h - scaled.height()) // 2
+            x = (ref_w - s_lw) // 2
+            y = (ref_h - s_lh) // 2
             cp.drawPixmap(x, y, scaled)
             cp.end()
             self._scaled[expr] = canvas
@@ -531,9 +567,16 @@ class SpriteAnimator:
         data = pil_img.tobytes('raw', 'RGBA')
         qimg = QImage(data, pil_img.width, pil_img.height, QImage.Format_RGBA8888)
         pm = QPixmap.fromImage(qimg)
-        scale = min(self._dw / max(1, pm.width()), self._dh / max(1, pm.height()))
-        return pm.scaled(int(pm.width() * scale), int(pm.height() * scale),
-                         Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        # 2026-11-06 修糊: 只重采样一次到物理像素(逻辑×DPR)并标记 DPR,
+        # 屏幕上 1:1 物理呈现; 源小于目标时不放大.
+        dpr = self._dpr
+        phys_w, phys_h = max(1, round(self._dw * dpr)), max(1, round(self._dh * dpr))
+        if pm.width() >= phys_w:
+            scale = min(phys_w / max(1, pm.width()), phys_h / max(1, pm.height()))
+            pm = pm.scaled(int(pm.width() * scale), int(pm.height() * scale),
+                           Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            pm.setDevicePixelRatio(dpr)
+        return pm
 
     def play_sticker(self, name):
         self.play_clip(f'sticker:{name}')
@@ -692,6 +735,10 @@ class SpriteAnimator:
                     self._clip = None
                     self._clip_frame = 0.0
                     self._clip_started_at = None
+                    # 2026-11-06 治"不动": idle 动画链——一条播完歇 1.5~4s
+                    # 就接下一条(加权随机), 常态大部分时间都在动(dsh-pet 式).
+                    if finished.startswith('idle:'):
+                        self._idle_action_countdown = random.uniform(1.5, 4.0)
                     if self.on_clip_finished:
                         try: self.on_clip_finished(finished)
                         except Exception: pass
@@ -731,7 +778,8 @@ class SpriteAnimator:
                 self.action == "none" and self.mouth_open <= 0.05 and self._clip in (None, 'idle')):
             self._idle_action_countdown -= dt
             if self._idle_action_countdown <= 0:
-                self._idle_action_countdown = random.uniform(12.0, 24.0)
+                # 2026-11-06: 12~24s 太懒(用户实测"没有动起来") → 4~9s
+                self._idle_action_countdown = random.uniform(4.0, 9.0)
                 r = random.random()
                 if r < .55 and self.idle_motion_clips:
                     names=[name for name,_ in self.idle_motion_clips];weights=[weight for _,weight in self.idle_motion_clips]
@@ -897,7 +945,8 @@ class SpriteAnimator:
         if (self._clip or '').startswith('task:'):
             frames=self.clips[self._clip]['frames']
             pm=frames[min(int(self._clip_frame),len(frames)-1)]
-            p.drawPixmap(int(x+(self._dw-pm.width())/2),int(y+self._dh-pm.height()),pm)
+            lw,lh=self._logical_size(pm)
+            p.drawPixmap(int(x+(self._dw-lw)/2),int(y+self._dh-lh),pm)
             if self.sunglasses:self._draw_sunglasses(p,x,y)
             p.restore();return
 
@@ -910,7 +959,7 @@ class SpriteAnimator:
             touch = squash_scale(self._tap_elapsed/.22, self._tap_amount)
             sx *= 1+(1-touch)*.5
             sy *= touch
-        breath_scale = 1.0 + math.sin(self._time * 2 * math.pi / 4.0) * 0.005
+        breath_scale = 1.0 + math.sin(self._time * 2 * math.pi / 4.0) * 0.009
 
         # 说话时轻微点头（增加真实感）
         talk_bob = self.mouth_open * 1.6
@@ -929,8 +978,9 @@ class SpriteAnimator:
             if frames:
                 idx = min(int(self._clip_frame), len(frames) - 1)
                 pm = frames[idx]
-                p.drawPixmap(int(x + (self._dw - pm.width()) / 2),
-                             int(y + self._dh - pm.height()), pm)
+                lw, lh = self._logical_size(pm)
+                p.drawPixmap(int(x + (self._dw - lw) / 2),
+                             int(y + self._dh - lh), pm)
                 if self.sunglasses:
                     self._draw_sunglasses(p, x, y)
                 p.restore()
@@ -974,12 +1024,17 @@ class SpriteAnimator:
             p.drawLine(QPointF(w*left,h*.338),QPointF(w*(left+.04),h*.373))
         p.restore()
 
+    def _logical_size(self, pm):
+        """DPR 感知的逻辑尺寸（DPR 标记图的 width() 是物理像素）"""
+        d = pm.devicePixelRatio() or 1.0
+        return max(1, round(pm.width() / d)), max(1, round(pm.height() / d))
+
     def _draw_sprite(self,p,x,y,pm):
         if self.action in ('think_chin','scratch_head') and self._hand_blend>.008:
             # Keep the source face/body intact; replace only the right flipper.
             # This is a native articulated limb, not generated/interpolated art.
             p.save()
-            w,h=pm.width(),pm.height()
+            w,h=self._logical_size(pm)
             area=QPainterPath();area.addRect(QRectF(x,y,w,h))
             cut=QPainterPath();cut.moveTo(x+w*.805,y+h*.576)
             cut.cubicTo(x+w*1.18,y+h*.585,x+w*1.15,y+h*.85,x+w*.965,y+h*.85)
@@ -992,7 +1047,7 @@ class SpriteAnimator:
             p.drawPixmap(x,y,pm);return
         # Continuous mesh warp: head moves, deformation fades through the neck,
         # and the lower body remains anchored. Uses the existing transparent art.
-        width,height=pm.width(),pm.height()
+        width,height=self._logical_size(pm)
         for row in range(0,height,2):
             ratio=row/height
             weight=1.0 if ratio<.39 else max(0,min(1,(.66-ratio)/.27))
