@@ -1,6 +1,7 @@
-﻿param([string]$ImagePath)
+param([string]$ImagePath)
 $ErrorActionPreference='Stop'
 [Console]::OutputEncoding=[System.Text.UTF8Encoding]::new($false)
+$ImagePath=(Resolve-Path -LiteralPath $ImagePath).Path
 Add-Type -AssemblyName System.Runtime.WindowsRuntime
 $null=[Windows.Storage.StorageFile,Windows.Storage,ContentType=WindowsRuntime]
 $null=[Windows.Graphics.Imaging.BitmapDecoder,Windows.Graphics.Imaging,ContentType=WindowsRuntime]
@@ -21,6 +22,6 @@ try {
   if($null -eq $engine){throw 'No Windows OCR language available'}
   $result=Await ($engine.RecognizeAsync($bitmap)) ([Windows.Media.Ocr.OcrResult])
   $lines=@($result.Lines | ForEach-Object {@{text=$_.Text;words=@($_.Words | ForEach-Object {@{text=$_.Text;x=$_.BoundingRect.X;y=$_.BoundingRect.Y;width=$_.BoundingRect.Width;height=$_.BoundingRect.Height}})}})
-  @{text=$result.Text;lines=$lines} | ConvertTo-Json -Depth 8 -Compress
+  @{text=$result.Text;language=$engine.RecognizerLanguage.LanguageTag;lines=$lines} | ConvertTo-Json -Depth 8 -Compress
  } finally {$bitmap.Dispose()}
 } finally {$stream.Dispose()}

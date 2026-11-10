@@ -19,11 +19,13 @@ from urllib.parse import urlencode
 
 from PyQt5.QtCore import QObject, pyqtSignal
 
-CONFIG_PATH = Path(__file__).resolve().parents[1] / 'ai_config.json'
-USAGE_PATH = CONFIG_PATH.with_name('realtime_usage.log')
+from core import guga_paths
+
+CONFIG_PATH = guga_paths.CONFIG
+USAGE_PATH = guga_paths.BASE / 'realtime_usage.log'
 # Lifecycle diagnostics only: connection/reconnect/error reasons and counters.
 # Never audio, transcripts, keys, prompts or headers.
-VOICE_EVENTS_DIR = CONFIG_PATH.parent / 'runtime' / 'voice'
+VOICE_EVENTS_DIR = guga_paths.RUNTIME / 'voice'
 _VOICE_EVENTS_LOCK=threading.Lock()
 
 
@@ -74,11 +76,7 @@ def normalize_usage(usage):
 
 
 def load_settings():
-    try:
-        with CONFIG_PATH.open(encoding='utf-8-sig') as f:
-            cfg = json.load(f)
-    except FileNotFoundError:
-        cfg = {}
+    cfg = guga_paths.read_config()
     settings = dict(DEFAULTS, **cfg.get('realtime_voice', {}))
     settings['api_key'] = settings.get('api_key') or os.getenv('DASHSCOPE_API_KEY', '')
     settings['workspace_id'] = settings.get('workspace_id') or os.getenv('DASHSCOPE_WORKSPACE_ID', '')

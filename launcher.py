@@ -15,15 +15,69 @@ import ctypes
 import runpy
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
-LOG_PATH = os.path.join(ROOT, 'startup.log')
+try:  # 启动日志属运行期数据：安装目录只读时写到用户目录
+    from core import guga_paths
+    LOG_PATH = os.path.join(str(guga_paths.BASE), 'startup.log')
+except Exception:  # pragma: no cover
+    _base = os.environ.get('LOCALAPPDATA') or os.environ.get('APPDATA') \
+        or os.path.expanduser('~')
+    LOG_PATH = os.path.join(_base, 'GUGA', 'startup.log')
 
 # 官方 Qt 目录（aqt 安装的 Qt 5.15.2；存在时优先使用）
 QT_DIR = os.path.join(os.environ.get('USERPROFILE', ''),
                       '.zcode', 'tools', 'qt', '5.15.2', 'msvc2019_64')
 
 
+def _set_dpi_awareness():
+    """声明 Per-Monitor v2 DPI 感知：多屏/150% 缩放下截图与点击坐标不再被系统缩放二次换算。
+
+    必须在创建 QApplication 之前调用。设置失败时逐级降级，绝不因为感知声明启动失败。
+    ``GUGA_DPI_AWARENESS=0`` 可关闭（用于 100% 缩放的 A/B 回归对照）。
+    """
+    if not sys.platform.startswith('win') or os.environ.get('GUGA_DPI_AWARENESS') == '0':
+        return 'skipped'
+    try:
+        user32 = ctypes.windll.user32
+    except Exception:
+        return 'unavailable'
+    applied = ''
+    try:
+        if getattr(user32, 'SetProcessDpiAwarenessContext', None) and \
+                user32.SetProcessDpiAwarenessContext(ctypes.c_void_p(-4)):
+            applied = 'per-monitor-v2'
+    except Exception:
+        applied = ''
+    if not applied:
+        try:
+            if ctypes.windll.shcore.SetProcessDpiAwareness(2) == 0:  # PROCESS_PER_MONITOR_DPI_AWARE
+                applied = 'per-monitor'
+        except Exception:
+            applied = ''
+    if not applied:
+        try:
+            if user32.SetProcessDPIAware():
+                applied = 'system'
+        except Exception:
+            applied = ''
+    return applied or 'unchanged'
+
+
+DPI_AWARENESS = {0: 'unaware', 1: 'system', 2: 'per-monitor'}
+
+
+def dpi_awareness():
+    """回读进程级声明，给测试与日志用；返回 unaware/system/per-monitor/unknown。"""
+    try:
+        value = ctypes.c_int()
+        ctypes.windll.shcore.GetProcessDpiAwareness(None, ctypes.byref(value))
+        return DPI_AWARENESS.get(value.value, 'unknown')
+    except Exception:
+        return 'unknown'
+
+
 def _prepare_qt():
-    """在导入 PyQt5 之前：设置正确的 Qt DLL 和插件路径，解决平台插件初始化失败问题"""
+    """在导入 PyQt5 之前：设置 DPI 感知 + 正确的 Qt DLL 和插件路径。"""
+    _set_dpi_awareness()
     qt_bin = None
     qt_plugins = None
     
@@ -106,7 +160,8 @@ def main():
     # 管理员模式：一键拔线需要管理员权限（ai_config.json 的 run_as_admin）
     # UAC 被拒绝时降级为普通模式继续运行（桌宠不消失，仅拔线不可用）
     try:
-        with open(os.path.join(ROOT, 'ai_config.json'), 'r', encoding='utf-8') as _f:
+        from core import guga_paths
+        with open(str(guga_paths.migrate_legacy()), 'r', encoding='utf-8') as _f:
             _cfg = json.load(_f)
         if _cfg.get('run_as_admin'):
             import ctypes
@@ -121,7 +176,7 @@ def main():
                 # UAC 被拒绝: 降级为普通模式继续运行, 桌宠不消失
                 # 拔线功能将不可用, 但其他功能正常
                 try:
-                    with open(os.path.join(ROOT, 'elev_fail.log'), 'w', encoding='utf-8') as _f2:
+                    with open(os.path.join(os.path.dirname(LOG_PATH), 'elev_fail.log'), 'w', encoding='utf-8') as _f2:
                         _f2.write('elevation failed, ShellExecuteW ret=%s\n' % ret)
                 except Exception:
                     pass

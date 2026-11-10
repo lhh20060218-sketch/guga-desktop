@@ -5,6 +5,8 @@ from pathlib import Path
 import tempfile
 import time
 
+from core import guga_paths
+
 MAX_CUTS = 9
 MIN_INTERVAL = 15
 RECONNECT_SECONDS = 30
@@ -25,7 +27,7 @@ def _write_atomic(path, data):
 
 class DisconnectBudget:
     def __init__(self, path=None, clock=time.time, disconnect=None):
-        self.path=Path(path) if path else Path(__file__).resolve().parents[1]/'runtime/netcut-budget.json'
+        self.path=Path(path) if path else guga_paths.RUNTIME/'netcut-budget.json'
         self.clock=clock
         self._disconnect=disconnect
 

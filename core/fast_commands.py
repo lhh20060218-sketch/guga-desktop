@@ -7,6 +7,7 @@ import time
 import unicodedata
 import subprocess
 from pathlib import Path
+from core.execution_contract import is_composite
 
 
 SITE_ALIASES={
@@ -49,6 +50,12 @@ def command_key(command):
 
 def _open_app(target):
     target=target.strip().strip('“”"\' ')
+    if not target or target.casefold() in {'软件','应用','程序','app','工具','东西'}:
+        # “打开软件”没有具体目标。本地快速通道直接说清楚缺什么，不要落到模型
+        # 变成“需要 API Key”，也不要让模型猜一个软件去打开。
+        line='要打开哪个软件？请说得具体一点，例如“打开计算器”“打开豆包”“打开 WorkBuddy”。'
+        return dict(ok=False,code='target_ambiguous',kind='app',target='',
+                    error=line,message=line,launch_requested=False)
     if target in BROWSER_NAMES:
         from core.browser_launch import default_executable
         browser=default_executable() or _browser_executable()
@@ -59,12 +66,28 @@ def _open_app(target):
             return dict(kind='app',target='浏览器',launch_requested=True,verified_running=False,
                 message='已请求浏览器打开新窗口')
         return _open_url('https://www.baidu.com')
+    # 已登记的目标软件（豆包/WorkBuddy/JoyCode 及接入面板新增的软件）优先：
+    # 路径解析交给 app_registry.launch_exe()，已运行则切前台，绝不起第二个实例。
+    from core.adapters import app_registry
+    app_id=app_registry.resolve_app(target)
+    if app_id:
+        result=app_registry.open_app(app_id)
+        result.update(kind='app',target=app_id,launch_requested=True)
+        return result
     alias=APP_ALIASES.get(target)
     if alias:
         os.startfile(alias)
         return dict(kind='app',target=target,message='Windows 已接受启动请求')
     from core.authorized_apps import AuthorizedApps
-    result=AuthorizedApps().open(target)
+    try:
+        result=AuthorizedApps().open(target)
+    except Exception as exc:
+        if getattr(exc,'code',None)!='app_not_found':
+            raise
+        line=('没找到“%s”。如果它已安装，请到桌面咕嘎「接入面板 → 新增软件」'
+              '填写软件名称和可执行文件路径（或把安装目录告诉我）；未安装的话请先安装。' % target)
+        return dict(ok=False,code='app_not_found',kind='app',target=target,
+                    error=line,message=line,launch_requested=False)
     if result.get('selection_required'):
         raise RuntimeError('找到多个已运行窗口，需要交给内部智能体按当前任务选择；尚未切换窗口')
     return dict(result,kind='app',target=target)
@@ -91,6 +114,8 @@ def match(text):
     value=command_text(text)
     prefix=dict(source_text=normalize(text))
     from core.browser_interaction import parse_step
+    if is_composite(value):
+        return dict(matched=False,action='none',silent=False)
     browser_step=parse_step(value,str(text or ''))
     if browser_step:return browser_step
     # A search/open prefix must not swallow the rest of a multi-step job.
@@ -177,7 +202,30 @@ def match(text):
         if target in BROWSER_NAMES:
             return dict(prefix,matched=True,action='open_app',silent=True,priority='fast',kind='app',target='浏览器')
         if target and len(target)<=80 and not re.search(
-                r'然后|接着|并且|再帮|并|不要|如果|输入|打字|填写|写入|写一|写个|撰写|保存|发送|搜索|查找|找到|编辑|点击|登录|录入|修复|安装|下载|网站|网页|网址|官网|是什么|什么意思|为什么|怎么|如何|会怎样|会怎么样|[，,。;；：:]|[?？]',target):
+                # 只有“打开XX”里 XX 是纯应用名才走快速通道；XX 里出现后续动作就交给模型，
+                # 否则“打开豆包写代码”会被当成只开豆包、吞掉后半句。
+                # 注意：不要加单字或与应用名撞车的词（写字/播放/录音/截图/设置/录音机会被误伤）。
+                r'然后|接着|并且|再帮|帮我|并|不要|如果|输入|打字|填写|写入|写一|写个|撰写|'
+                r'写代码|写文章|写信|写点|写歌|写稿|写份|写封|写段|写篇|'
+                r'写文案|写报告|写文档|写邮件|写脚本|写笔记|写总结|写方案|写计划|写设计|写诗|写小说|写日记|写需求|'
+                r'做个|做点|做一|做份|做张|做个表|做个图|做表格|做图|做PPT|做文档|做方案|做报告|'
+                r'生成|创作|制作|设计|翻译|总结|整理|分析|润色|扩写|改写|提炼|产出|'
+                r'玩个|玩点|玩一|玩游戏|玩会|玩玩|'
+                r'剪个|剪点|剪一|剪视频|剪片|剪辑|'
+                r'保存|发送|发个|发点|发一|发消息|发邮件|发短信|发份|'
+                r'搜索|查找|找到|编辑|点击|登录|录入|修复|安装|下载|'
+                r'看个|看点|看一|看看|看一下|看截图|看图|看视频|看电影|看剧|看球|看直播|'
+                r'听个|听点|听一|听听|听一下|听歌|听音乐|听书|听播客|听电台|'
+                r'聊天|聊会|聊一下|聊个|聊聊|聊一聊|'
+                r'读个|读点|读一|读一下|读书|读文章|'
+                r'问个|问点|问一|问一下|问问|问你|'
+                r'修改|改个|改点|改一|改一下|改改|'
+                r'删除|删掉|删个|删点|删一|删一下|'
+                r'截个图|录个屏|录个音|录个|录一|录一下|'
+                r'播个|播一|播一下|运行|运个|运一|运一下|'
+                r'网站|网页|网址|官网|是什么|什么意思|为什么|怎么|如何|会怎样|会怎么样|'
+                r'[，,。;；：:]|[?？]|'
+                r'写[^\s，,。；;]{1,6}',target):
             # Resolve installed apps on the existing launch worker, never scan
             # the Start Menu on Qt/voice threads or require a duplicate grant.
             return dict(prefix,matched=True,action='open_app',silent=True,priority='fast',kind='app',target=target)
@@ -237,7 +285,9 @@ def _execute(result):
     if values.get('kind')=='url':
         return dict(ok=True,**_open_url(values['target']))
     if values.get('kind')=='app':
-        return dict(ok=True,**_open_app(values['target']))
+        answer=dict(_open_app(values['target']))
+        answer.setdefault('ok',True)
+        return answer
     return dict(ok=False,error='未知快速动作')
 
 

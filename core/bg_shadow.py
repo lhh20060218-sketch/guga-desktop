@@ -4,8 +4,9 @@ from pathlib import Path
 import psutil
 
 ROOT=Path(__file__).resolve().parents[1]
-ACTIVE=ROOT/'runtime/shadow-active.json'
-ENGINE=ROOT/'runtime/bg-engine-current'
+from core import guga_paths
+ACTIVE=guga_paths.RUNTIME/'shadow-active.json'
+ENGINE=guga_paths.RUNTIME/'bg-engine-current'
 HDT=Path.home()/'Desktop/游戏/HDT/HearthstoneDeckTracker.exe'
 
 
@@ -33,8 +34,8 @@ class ShadowManager:
         seconds=max(30,min(int(seconds),1800))
         state=self.status()
         if state.get('observer_running'):raise RuntimeError('只读观察已经在运行')
-        stamp=time.strftime('%Y%m%d-%H%M%S');observation=ROOT/'runtime/shadow-observations'/stamp
-        training_output=ROOT/'runtime/bg-lab'/('shadow-training-'+stamp)
+        stamp=time.strftime('%Y%m%d-%H%M%S');observation=guga_paths.RUNTIME/'shadow-observations'/stamp
+        training_output=guga_paths.RUNTIME/'bg-lab'/('shadow-training-'+stamp)
         flags=getattr(subprocess,'CREATE_NO_WINDOW',0);env=dict(os.environ,OMP_NUM_THREADS='2',MKL_NUM_THREADS='2')
         observer=subprocess.Popen([sys.executable,str(ROOT/'tools/observe_bg_logs.py'),'--seconds',str(seconds),
             '--output',str(observation)],cwd=ROOT,env=env,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,creationflags=flags)

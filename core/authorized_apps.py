@@ -19,9 +19,26 @@ class AppResolutionError(ValueError):
     code='app_not_found'
 
 
+def _wait_for_window(name, seconds=3.5):
+    """Bounded wait for a launched app's window.
+
+    Returning immediately after os.startfile made the agent re-list windows
+    and frequently conclude the app had not started. A short bounded wait
+    turns that flaky round trip into one verified result.
+    """
+    from core.window_inventory import list_windows
+    deadline=time.monotonic()+max(0,float(seconds))
+    while True:
+        windows=list_windows(name)
+        if windows:return windows
+        if time.monotonic()>=deadline:return []
+        time.sleep(.2)
+from core import guga_paths
+
+
 class AuthorizedApps:
     def __init__(self, path=None):
-        self.path = Path(path or ROOT / 'runtime/chat/authorized_apps.json')
+        self.path = Path(path or guga_paths.RUNTIME / 'chat/authorized_apps.json')
         from core.desktop_access import DesktopAccess
         self.access = DesktopAccess(self.path.parent/'local_access.json')
 
@@ -98,7 +115,16 @@ class AuthorizedApps:
                     windows=windows,message='找到多个运行中的窗口；按当前任务选择hwnd并focus，不要重复启动')
         from core.fast_commands import BROWSER_NAMES, _open_app
         if name in BROWSER_NAMES:
-            return dict(name=name,**_open_app(name))
+            result=dict(name=name,**_open_app(name))
+            windows=_wait_for_window(name,2.5)
+            if windows:
+                from core.computer_control import ComputerControl
+                receipt=ComputerControl(self.access).execute(dict(action='focus',hwnd=windows[0]['hwnd']))
+                return dict(result,name=name,**receipt,hwnd=windows[0]['hwnd'],reused_existing=False,
+                    verified_running=True,launch_requested=True,
+                    message='浏览器窗口已出现并聚焦；继续核对目标网址是否加载完成')
+            return dict(result,name=name,launch_requested=True,verified_running=False,
+                message='已请求浏览器打开新窗口，但未在2.5秒内观察到窗口；稍后用 windows 核对，不要重复启动')
         entries = self.available()
         canonical=next((key for key in entries if key.casefold()==str(name).casefold()),None)
         if canonical is not None:name=canonical
@@ -109,7 +135,9 @@ class AuthorizedApps:
             alias=next((value for key,value in SCRIPT_ALIASES.items() if normalized in (key,key+'脚本',key+'的脚本')),None)
             if alias and alias.is_file():target=alias
             elif not self.access.enabled or not target.is_absolute() or target.suffix.lower() not in ('.exe','.lnk','.bat','.cmd','.ps1'):
-                raise AppResolutionError('未找到名为“'+str(name)[:80]+'”的软件；已检查运行窗口和可用软件名称。请提供准确名称或软件路径')
+                raise AppResolutionError('未找到名为“'+str(name)[:80]+'”的软件；已检查运行窗口和可用软件名称。'
+                    '请改用准确名称（例如“记事本”“计算器”），或到桌面咕嘎「接入面板 → 新增软件」'
+                    '填写软件名称和可执行文件路径；软件没安装请先安装')
         else:
             target = Path(entries[name])
         if not target.is_file():
@@ -130,5 +158,12 @@ class AuthorizedApps:
                 raise RuntimeError(f'脚本启动后立即退出，退出码 {code}；请检查脚本或依赖安装')
             return dict(name=name,path=str(target),launch_requested=True,verified_running=True,pid=proc.pid,
                         message='脚本控制台已启动并在运行')
+        windows=_wait_for_window(name,3.5)
+        if windows:
+            from core.computer_control import ComputerControl
+            receipt=ComputerControl(self.access).execute(dict(action='focus',hwnd=windows[0]['hwnd']))
+            return dict(name=name,path=str(target),launch_requested=True,reused_existing=False,
+                **receipt,hwnd=windows[0]['hwnd'],verified_running=True,
+                message='软件窗口已出现并聚焦；继续核对界面状态')
         return dict(name=name,path=str(target),launch_requested=True,verified_running=False,
-                    message='Windows 已接受软件启动请求；仍需观察窗口确认')
+                    message='Windows 已接受软件启动请求，但未在3.5秒内观察到窗口；稍后用 windows 核对，不要重复启动')

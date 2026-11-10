@@ -125,7 +125,9 @@ class BrowserInteraction:
                 rect=win32gui.GetWindowRect(hwnd);self._guard(hwnd);attempted=True
                 user=ctypes.windll.user32
                 user.SetCursorPos((rect[0]+rect[2])//2,(rect[1]+rect[3])//2)
-                user.mouse_event(0x0800,0,0,-480 if action=='scroll_down' else 480,0)
+                from core.computer_control import wheel_notches
+                for value in wheel_notches('later' if action=='scroll_down' else 'earlier', 4):
+                    user.mouse_event(0x0800,0,0,value,0)
                 message='已向下滚动' if action=='scroll_down' else '已向上滚动'
             else:raise ValueError('不支持的单步浏览器操作')
             return dict(ok=True,action_sent=True,verified=verified,hwnd=hwnd,message=message,

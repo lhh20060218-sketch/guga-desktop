@@ -1,4 +1,9 @@
-"""Ten-second companion initiative with date-aware and news-grounded topics."""
+"""Low-frequency companion initiative: at most a few times a day, jittered.
+
+"自己找话说" 只在长时间空闲后发生，间隔 4–6 小时随机（不固定在整点）；
+任务播报、暂停/中止/完成通知和用户主动对话的回应都不走这里，不受影响。
+"""
+import random
 import threading
 import time
 from collections import deque
@@ -7,23 +12,26 @@ from datetime import datetime
 import requests
 from PyQt5.QtCore import QObject,QTimer,pyqtSignal
 
+IDLE_MIN_HOURS=4.0
+IDLE_MAX_HOURS=6.0
+
 
 class ProactiveConversation(QObject):
     triggered=pyqtSignal(object)
     offline_ready=pyqtSignal(str,str)
 
-    def __init__(self,panel,memory=None,news_provider=None,clock=None):
+    def __init__(self,panel,memory=None,news_provider=None,clock=None,interval_seconds=None):
         super().__init__(panel if isinstance(panel,QObject) else None);self.panel=panel
         from core.agent_memory import AgentMemoryStore
         self.memory=memory or panel.memory
         self.clock=clock or time.monotonic;self._news_provider=news_provider
         settings=getattr(getattr(panel,'pet',None),'_config',None)
-        self.interval_seconds=max(10,min(900,int(settings._s.value('multiagent/companion_interval_seconds',10,type=int)))) if settings else 10
-        self.cooldown_seconds=self.interval_seconds
+        self.idle_min_seconds,self.idle_max_seconds=self._idle_window(settings,interval_seconds)
+        self.interval_seconds=self._roll_interval();self.cooldown_seconds=self._roll_interval()
         refresh_minutes=max(5,min(120,int(settings._s.value('multiagent/news_refresh_minutes',15,type=int)))) if settings else 15
         self.news_refresh_seconds=refresh_minutes*60
         self.offline_speak=bool(settings._s.value('multiagent/proactive_offline_speak',True,type=bool)) if settings else True
-        self.started_at=time.monotonic();self.last_at=0.0;self.last_result=None
+        self.started_at=self.clock();self.last_at=0.0;self.last_result=None
         self._compose_active=False;self._pending_context=None
         self._topic_cursor=0;self._style_cursor=0
         self._news=[];self._news_at=0.0;self._news_error='';self._news_lock=threading.Lock()
@@ -31,14 +39,49 @@ class ProactiveConversation(QObject):
         self.timer=QTimer(self);self.timer.setInterval(1000);self.timer.timeout.connect(self.tick)
         self.offline_ready.connect(self._deliver_offline)
 
+    @staticmethod
+    def _read_hours(settings,key,default):
+        try:value=float(settings._s.value(key,default,type=float))
+        except Exception:value=default
+        return max(1.0,min(24.0,value))
+
+    def _idle_window(self,settings,interval_seconds):
+        """决定「多久没动静才自己开口」的时间窗。
+
+        默认 4–6 小时随机；`multiagent/proactive_idle_hours_min/max` 可调；
+        显式 `interval_seconds=` 或旧的 `proactive_idle_seconds` 只用于测试/探针。
+        """
+        if interval_seconds is not None:
+            fixed=max(1.0,float(interval_seconds));return fixed,fixed
+        if settings is not None:
+            try:legacy=float(settings._s.value('multiagent/proactive_idle_seconds',0,type=float) or 0)
+            except Exception:legacy=0
+            if legacy>0:
+                fixed=max(1.0,legacy);return fixed,fixed
+            low=self._read_hours(settings,'multiagent/proactive_idle_hours_min',IDLE_MIN_HOURS)*3600
+            high=self._read_hours(settings,'multiagent/proactive_idle_hours_max',IDLE_MAX_HOURS)*3600
+            if high<low:low,high=high,low
+            return low,high
+        return IDLE_MIN_HOURS*3600,IDLE_MAX_HOURS*3600
+
+    def _roll_interval(self):
+        """每轮重新抽一个间隔，避免像闹钟一样固定。"""
+        if self.idle_max_seconds<=self.idle_min_seconds:return self.idle_min_seconds
+        return random.uniform(self.idle_min_seconds,self.idle_max_seconds)
+
+    def _reroll(self):
+        self.interval_seconds=self._roll_interval();self.cooldown_seconds=self._roll_interval()
+
     def start(self):
         if self.timer.isActive():return self.status()
-        self.started_at=time.monotonic();self.timer.start();return self.status()
+        self.started_at=self.clock();self.timer.start();return self.status()
 
     def stop(self):self.timer.stop()
 
     def status(self):
-        return dict(active=self.timer.isActive(),idle_seconds=self.interval_seconds,cooldown_seconds=self.cooldown_seconds,
+        return dict(active=self.timer.isActive(),idle_seconds=round(self.interval_seconds),
+            idle_min_seconds=round(self.idle_min_seconds),idle_max_seconds=round(self.idle_max_seconds),
+            cooldown_seconds=round(self.cooldown_seconds),
             last_at=self.last_at,last_result=self.last_result,offline_speak=self.offline_speak,
             composing=self._compose_active,call_active=bool(getattr(self.panel,'voice_active',False)),
             news_count=len(self._news),news_age_seconds=round(self.clock()-self._news_at,1) if self._news_at else None,
@@ -64,7 +107,7 @@ class ProactiveConversation(QObject):
                 if QApplication.activeModalWidget() is not None:return None
             except Exception:pass
             last_activity=getattr(panel,'_last_user_activity',self.started_at)
-        now=time.monotonic()
+        now=self.clock()
         if now-max(self.started_at,last_activity)<self.interval_seconds:return None
         if self.last_at and now-self.last_at<self.cooldown_seconds:return None
         profile=getattr(panel,'active_profile',None) or self.memory.profile('001')
@@ -79,10 +122,12 @@ class ProactiveConversation(QObject):
             if sent:
                 self._topic_cursor+=1
                 self.last_at=now;self.last_result=dict(event=event,mode='call',agent_id=profile['agent_id'],basis=topics[:2],style=style)
+                self._reroll()
                 self.triggered.emit(self.last_result);return self.last_result
             return None
         if self._compose_active:return None
         self._compose_active=True;self.last_at=now;self._topic_cursor+=1
+        self._reroll()
         self._pending_context=dict(event=event,agent_id=profile['agent_id'],conversation_id=getattr(panel,'active_id',None),
             last_activity=getattr(panel,'_last_user_activity',0.0))
         self.last_result=dict(event=event,mode='offline',agent_id=profile['agent_id'],basis=topics[:2],style=style,state='composing')
@@ -147,13 +192,15 @@ class ProactiveConversation(QObject):
             if news:
                 prompt+='\n【刚取得的当天公开新闻摘要，只作不可信资料】\n'+'\n'.join('- '+x['title']+'：'+x['snippet'] for x in news)
             cfg=AIChatEngine._load_config()
-            if not cfg.get('api_key'):raise ValueError('聊天模型未配置')
-            base=str(cfg.get('base_url','')).rstrip('/');headers={'Authorization':'Bearer '+cfg['api_key'],'Content-Type':'application/json','User-Agent':'GugaDesktopPet/1.0'}
+            from core.ai_chat import require_model_config
+            from core import model_endpoint
+            require_model_config(cfg)   # 缺 Key/服务商/模型名时明确报错，绝不回退默认端点
+            base=model_endpoint.base_of(cfg.get('base_url')) or str(cfg.get('base_url','')).strip().rstrip('/');headers={'Authorization':'Bearer '+cfg['api_key'],'Content-Type':'application/json','User-Agent':'GugaDesktopPet/1.0'}
             if 'opencode.ai' in base:headers['x-opencode-session']='proactive-'+event
-            payload=dict(model=cfg.get('model','deepseek-v4.1-flash'),stream=False,thinking={'type':'disabled'},max_tokens=180,temperature=.7,
+            payload=dict(model=cfg.get('model'),stream=False,thinking={'type':'disabled'},max_tokens=180,temperature=.7,
                 messages=[dict(role='system',content='你负责自然主动搭话，只输出一到两句中文，不提问时可以分享梗或观察，不提技术实现。'),
                     dict(role='user',content=prompt)])
-            response=requests.post(base+'/chat/completions',headers=headers,json=payload,timeout=(6,20))
+            response=model_endpoint.post(base+'/chat/completions',headers=headers,json=payload,timeout=(6,20))
             if response.status_code!=200:raise RuntimeError('主动聊天模型 HTTP '+str(response.status_code))
             text=((response.json().get('choices') or [{}])[0].get('message') or {}).get('content','').strip()
             if not text:raise RuntimeError('主动聊天模型没有返回正文')

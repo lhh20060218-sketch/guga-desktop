@@ -37,21 +37,21 @@ class AnswerTests(unittest.TestCase):
         self.assertFalse(uses_task('打开微信','chat'));self.assertTrue(uses_task('你好','task'))
 
     def test_stream_returns_only_answer_not_hidden_reasoning(self):
-        worker=AnswerWorker(config=dict(api_key='offline',base_url='https://opencode.ai/zen/go/v1'))
+        worker=AnswerWorker(config=dict(api_key='offline',base_url='https://opencode.ai/zen/go/v1',model='fixture'))
         results=[];draft=[];worker.completed.connect(results.append);worker.partial.connect(lambda ident,generation,text:draft.append(text))
         response=MagicMock(status_code=200)
         response.iter_lines.return_value=[('data: '+json.dumps(dict(choices=[dict(delta=d)]))).encode() for d in
             [dict(reasoning_content='HIDDEN_REASONING'),dict(content='happy|none|'),dict(content='咕嘎～这是程序之间的入口。')]]+[b'data: [DONE]']
-        with patch('core.chat_answer.requests.post',return_value=response) as api:
+        with patch('core.model_endpoint.post',return_value=response) as api:
             worker.start('offline-session',[],'接口是什么',effort='quick');self.pump(lambda:bool(results))
         self.assertTrue(results[0]['ok']);self.assertIn('咕嘎～这是程序之间的入口。',results[0]['text'])
         self.assertNotIn('HIDDEN_REASONING',str(draft));self.assertNotIn('tools',api.call_args.kwargs['json'])
         response.close.assert_called_once()
 
     def test_http_error_is_truthful_and_never_echoes_response_body(self):
-        worker=AnswerWorker(config=dict(api_key='offline'));results=[];worker.completed.connect(results.append)
+        worker=AnswerWorker(config=dict(api_key='offline',base_url='https://example.invalid/v1',model='fixture'));results=[];worker.completed.connect(results.append)
         response=MagicMock(status_code=429);response.text='DO_NOT_LEAK_PROVIDER_BODY'
-        with patch('core.chat_answer.requests.post',return_value=response):
+        with patch('core.model_endpoint.post',return_value=response):
             worker.start('offline',[],'你好');self.pump(lambda:bool(results))
         self.assertFalse(results[0]['ok']);self.assertIn('429',results[0]['error']);self.assertNotIn('DO_NOT_LEAK',str(results))
 
@@ -61,8 +61,8 @@ class AnswerTests(unittest.TestCase):
         def lines(**kw):
             entered.set();release.wait(2);yield b'data: [DONE]'
         response.iter_lines.side_effect=lines
-        worker=AnswerWorker(config=dict(api_key='offline'));results=[];worker.completed.connect(results.append)
-        with patch('core.chat_answer.requests.post',return_value=response):
+        worker=AnswerWorker(config=dict(api_key='offline',base_url='https://example.invalid/v1',model='fixture'));results=[];worker.completed.connect(results.append)
+        with patch('core.model_endpoint.post',return_value=response):
             worker.start('offline',[],'你好');self.assertTrue(entered.wait(1));worker.cancel();release.set();APP.processEvents()
             self.assertFalse(worker.active);self.assertEqual(len(results),1);self.assertFalse(results[0]['ok'])
 

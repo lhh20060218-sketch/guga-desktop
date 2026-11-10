@@ -1,7 +1,7 @@
 # 智谱清言 · 输入输出能力档案
 
 - **档案ID**：zhipu-io
-- **软件**：智谱清言（ChatGLM 桌面客户端，Electron，`C:\Users\zhipengcheng\AppData\Local\ZP\chatglm\智谱清言.exe`）
+- **软件**：智谱清言（ChatGLM 桌面客户端，Electron，`%USERPROFILE%\AppData\Local\ZP\chatglm\智谱清言.exe`）
 - **实测版本**：FileVersion 2.0.7
 - **实测时间**：2026-11-05 初版 / **2026-11-06 复核（P1：「+」浮层）**
 - **实测环境**：Windows 11，屏幕 2560×1600，缩放 100%（**单环境验证**），已登录

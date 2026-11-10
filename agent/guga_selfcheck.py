@@ -6,15 +6,23 @@
 （v0.2 起会读一次线上版本号做比对；断网时自动跳过，绝不影响自检本身）
 用法：
     python guga_selfcheck.py            # 控制台看报告
-结果另存 guga_selfcheck_report.json（供后续版本与网页配对上传）
+结果另存 guga_selfcheck_report.json（写入用户可写目录，安装目录只读时不失败）
 """
 import os
 import sys
 import json
 import time
 
-REPORT = "guga_selfcheck_report.json"
-BASE = os.environ.get("GUGA_CLOUD", "http://39.107.48.60:3000")   # 云端大脑地址；可用环境变量 GUGA_CLOUD 指向自建服务
+_REPORT_DIR = os.path.join(os.environ.get('LOCALAPPDATA') or os.environ.get('APPDATA')
+                           or os.path.expanduser('~'), 'GUGA', 'runtime')
+try:
+    os.makedirs(_REPORT_DIR, exist_ok=True)
+except Exception:  # 用户目录也建不出来时退回临时目录，自检照常出结果
+    import tempfile
+    _REPORT_DIR = tempfile.gettempdir()
+REPORT = os.path.join(_REPORT_DIR, 'guga_selfcheck_report.json')
+# 云端大脑地址只由用户配置下发（桌面端写入 GUGA_CLOUD），不内置任何端点。
+BASE = os.environ.get("GUGA_CLOUD", "").rstrip("/")
 
 
 def local_version():

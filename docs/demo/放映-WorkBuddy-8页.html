@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<title>放映 · WorkBuddy 桌面AI助手能力介绍（8页）</title>
+<style>
+  :root{--bg:#07191c;--fg:#f2f7f7;--dim:#9fc3c6;--accent:#59b0ff;}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--fg);
+    font-family:"Microsoft YaHei UI","Microsoft YaHei",system-ui,sans-serif;overflow:hidden}
+  .stage{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;padding:2vh 2vw}
+  .slide{display:none;width:100%;max-width:1600px;aspect-ratio:16/9;position:relative;
+    background:linear-gradient(140deg,#0c3438,#0f4a45 55%,#0b2b30);border:1px solid #1e4a50;
+    border-radius:14px;padding:4.6vh 4.8vw;overflow:hidden;box-shadow:0 18px 50px #0008}
+  .slide.active{display:block}
+  .inner{height:100%;font-size:26px;display:flex;flex-direction:column;justify-content:center;gap:1.1vh}
+  .inner.cols{display:block;column-count:2;column-gap:4vw}
+  .inner.cols .blk{break-inside:avoid}
+  .blk{white-space:pre-line;line-height:1.5}
+  .blk.lg{font-size:2.05em;font-weight:800;letter-spacing:.5px;margin:.12em 0}
+  .blk.md{font-size:1.12em;color:#e9f5f5;margin:.06em 0}
+  .blk.sm{font-size:.78em;color:#a9cccf;margin:.04em 0}
+  .pageno{position:absolute;right:3vw;bottom:2.4vh;font-size:clamp(11px,.95vw,15px);color:#ffffff55}
+  .hud{position:fixed;left:0;right:0;bottom:0;display:flex;align-items:center;
+    gap:18px;padding:10px 22px;background:#041214d9;border-top:1px solid #123236;font-size:13px;color:var(--dim)}
+  .hud b{color:var(--fg);font-weight:600}
+  .bar{flex:1;height:4px;background:#123236;border-radius:2px;overflow:hidden}
+  .bar>i{display:block;height:100%;width:12.5%;background:var(--accent);transition:width .2s}
+  .nav{position:fixed;top:50%;transform:translateY(-50%);width:52px;height:74px;border:0;cursor:pointer;
+    background:#0c2b2fcc;color:#cfe8ea;font-size:26px;border-radius:10px}
+  .nav:hover{background:#12505af0}
+  #prev{left:10px}#next{right:10px}
+  .note{position:fixed;top:0;left:0;right:0;padding:7px 18px;font-size:12px;color:#8fb6b9;
+    background:#041214cc;border-bottom:1px solid #123236;z-index:3}
+  @media print{.hud,.nav,.note{display:none}.slide{display:block!important;position:static;page-break-after:always;max-width:none}}
+</style></head><body>
+<div class="note">放映说明：内容来自 2026-11-07 19:53 由 WorkBuddy 生成的原 pptx；本页为按原文本重排的放映版，<b>版式不是 PowerPoint 原始渲染</b>。按键 ← → 翻页，F 全屏。</div>
+<div class="stage" id="stage"></div>
+<button class="nav" id="prev" aria-label="上一页">‹</button>
+<button class="nav" id="next" aria-label="下一页">›</button>
+<div class="hud"><b id="pos">1 / 8</b><div class="bar"><i id="bar"></i></div><span>← → 翻页 · F 全屏 · 点击页面左右两侧也可翻页</span></div>
+<script>
+const SLIDES = [{"no": 1, "blocks": [{"t": "WorkBuddy", "tier": "lg"}, {"t": "桌面 AI 助手\n能力介绍", "tier": "lg"}, {"t": "把日常任务，交给一个常驻桌面的工作伙伴", "tier": "lg"}, {"t": "产品能力概览 · 2026 年 11 月", "tier": "lg"}]}, {"no": 2, "blocks": [{"t": "WorkBuddy · 桌面 AI 助手能力介绍", "tier": "lg"}, {"t": "产品定位：一个常驻桌面的工作入口", "tier": "lg"}, {"t": "定位 / POSITIONING", "tier": "sm"}, {"t": "不是聊天窗口，\n是工作台", "tier": "sm"}, {"t": "让 AI 从「回答问题」，走向「完成任务」", "tier": "sm"}, {"t": "01", "tier": "sm"}, {"t": "常驻桌面", "tier": "lg"}, {"t": "开箱即用，不必反复打开网页与切换工具", "tier": "lg"}, {"t": "02", "tier": "sm"}, {"t": "理解意图", "tier": "lg"}, {"t": "用自然语言描述目标，无需学习复杂指令", "tier": "lg"}, {"t": "03", "tier": "sm"}, {"t": "代为执行", "tier": "lg"}, {"t": "从查资料到改文档，把中间步骤交给助手", "tier": "lg"}, {"t": "04", "tier": "sm"}, {"t": "全程陪跑", "tier": "lg"}, {"t": "同一会话内持续跟进，直到任务收口", "tier": "lg"}, {"t": "桌面 AI 助手能力介绍", "tier": "sm"}, {"t": "02 / 08", "tier": "sm"}]}, {"no": 3, "blocks": [{"t": "WorkBuddy · 桌面 AI 助手能力介绍", "tier": "lg"}, {"t": "核心能力：五项能力覆盖日常工作链路", "tier": "lg"}, {"t": "CORE CAPABILITIES", "tier": "sm"}, {"t": "5", "tier": "sm"}, {"t": "项核心能力", "tier": "sm"}, {"t": "从接收任务，\n到交付结果", "tier": "sm"}, {"t": "01", "tier": "sm"}, {"t": "任务协助", "tier": "lg"}, {"t": "把多步骤任务拆解成可执行的动作，逐项推进", "tier": "lg"}, {"t": "02", "tier": "sm"}, {"t": "信息整理", "tier": "lg"}, {"t": "归并散落的消息、链接与附件，输出结构化要点", "tier": "lg"}, {"t": "03", "tier": "sm"}, {"t": "日程管理", "tier": "lg"}, {"t": "安排待办与会议节点，按时间主动提醒跟进", "tier": "lg"}, {"t": "04", "tier": "sm"}, {"t": "文档处理", "tier": "lg"}, {"t": "起草、改写、统一格式，并导出可交付的文件", "tier": "lg"}, {"t": "05", "tier": "sm"}, {"t": "多轮对话", "tier": "lg"}, {"t": "保持上下文连续追问，不必重复交代背景", "tier": "lg"}, {"t": "桌面 AI 助手能力介绍", "tier": "sm"}, {"t": "03 / 08", "tier": "sm"}]}, {"no": 4, "blocks": [{"t": "WorkBuddy · 桌面 AI 助手能力介绍", "tier": "lg"}, {"t": "典型使用场景：从晨会到复盘的四个高频时刻", "tier": "lg"}, {"t": "09:00", "tier": "sm"}, {"t": "会前准备", "tier": "lg"}, {"t": "汇总议题与背景资料，生成一页讨论提纲", "tier": "lg"}, {"t": "11:30", "tier": "sm"}, {"t": "信息整理", "tier": "lg"}, {"t": "把消息、链接与附件归并成当天的要点清单", "tier": "lg"}, {"t": "15:00", "tier": "sm"}, {"t": "文档处理", "tier": "lg"}, {"t": "起草周报、统一措辞与格式，直接导出文件", "tier": "lg"}, {"t": "18:00", "tier": "sm"}, {"t": "收尾复盘", "tier": "lg"}, {"t": "核对待办进度，列出明天的优先事项", "tier": "lg"}, {"t": "桌面 AI 助手能力介绍", "tier": "sm"}, {"t": "04 / 08", "tier": "sm"}]}, {"no": 5, "blocks": [{"t": "WorkBuddy · 桌面 AI 助手能力介绍", "tier": "lg"}, {"t": "安全与隐私：边界清楚，才敢把工作交出去", "tier": "lg"}, {"t": "01 本地优先", "tier": "lg"}, {"t": "文件与内容优先在本机处理，减少不必要的上传", "tier": "lg"}, {"t": "02 权限边界", "tier": "md"}, {"t": "读写按授权范围执行，敏感动作需要人工确认", "tier": "md"}, {"t": "03 数据最小化", "tier": "md"}, {"t": "只取完成任务所需信息，不做冗余留存", "tier": "md"}, {"t": "04 过程可追溯", "tier": "lg"}, {"t": "关键操作留有记录，随时回看与撤销", "tier": "lg"}, {"t": "四条边界覆盖数据、权限与操作全过程：默认可控 · 按需授权 · 全程留痕", "tier": "lg"}, {"t": "桌面 AI 助手能力介绍", "tier": "sm"}, {"t": "05 / 08", "tier": "sm"}]}, {"no": 6, "blocks": [{"t": "WorkBuddy · 桌面 AI 助手能力介绍", "tier": "lg"}, {"t": "效率价值：把时间还给需要判断的工作", "tier": "lg"}, {"t": "把重复劳动交出去，\n把判断留给人", "tier": "lg"}, {"t": "EFFICIENCY VALUE", "tier": "md"}, {"t": "效率不是做得更快，\n而是把步骤变少", "tier": "md"}, {"t": "少切换", "tier": "lg"}, {"t": "一个入口承接搜索、整理与写作，减少工具往返", "tier": "lg"}, {"t": "少等待", "tier": "md"}, {"t": "常规材料一次成型，把返工压缩到一轮以内", "tier": "md"}, {"t": "少遗漏", "tier": "md"}, {"t": "待办与日程由助手跟进，关键节点主动提醒", "tier": "md"}, {"t": "更聚焦", "tier": "lg"}, {"t": "把重复劳动交出去，人只做取舍与决策", "tier": "lg"}, {"t": "桌面 AI 助手能力介绍", "tier": "sm"}, {"t": "06 / 08", "tier": "sm"}]}, {"no": 7, "blocks": [{"t": "WorkBuddy · 桌面 AI 助手能力介绍", "tier": "lg"}, {"t": "行动号召：用一次真实任务，验证一次改变", "tier": "lg"}, {"t": "从一次真实任务开始，把用法沉淀下来", "tier": "lg"}, {"t": "01", "tier": "sm"}, {"t": "选一个高频场景", "tier": "sm"}, {"t": "从每周必做、步骤固定的任务开始", "tier": "sm"}, {"t": "→", "tier": "sm"}, {"t": "02", "tier": "sm"}, {"t": "说清目标与边界", "tier": "sm"}, {"t": "一句话讲清结果、资料与交付格式", "tier": "sm"}, {"t": "→", "tier": "sm"}, {"t": "03", "tier": "sm"}, {"t": "现场跑通一轮", "tier": "sm"}, {"t": "用真实任务验证产出，补齐上下文", "tier": "sm"}, {"t": "→", "tier": "sm"}, {"t": "04", "tier": "sm"}, {"t": "沉淀为团队用法", "tier": "sm"}, {"t": "把有效流程固化成模板，逐步扩展", "tier": "sm"}, {"t": "第一步不需要完美，只需要开始", "tier": "sm"}, {"t": "NEXT STEP", "tier": "sm"}, {"t": "桌面 AI 助手能力介绍", "tier": "sm"}, {"t": "07 / 08", "tier": "sm"}]}, {"no": 8, "blocks": [{"t": "WorkBuddy", "tier": "lg"}, {"t": "现在，\n交给它第一件事", "tier": "lg"}, {"t": "从一个场景开始，让助手成为日常", "tier": "lg"}, {"t": "产品能力概览 · 2026 年 11 月", "tier": "lg"}, {"t": "RECAP / 三条回顾", "tier": "md"}, {"t": "一个入口", "tier": "md"}, {"t": "统一承接日常任务", "tier": "md"}, {"t": "一次说清", "tier": "md"}, {"t": "多轮对话保持上下文", "tier": "md"}, {"t": "全程可控", "tier": "md"}, {"t": "权限与数据边界清晰", "tier": "md"}]}];
+const stage = document.getElementById('stage');
+for (const s of SLIDES) {
+  const d = document.createElement('section');
+  d.className = 'slide';
+  d.dataset.no = s.no;
+  const inner = document.createElement('div');
+  inner.className = 'inner' + (s.blocks.length > 14 ? ' cols' : '');
+  for (const b of s.blocks) {
+    const p = document.createElement('div');
+    p.className = 'blk ' + b.tier;
+    p.textContent = b.t;
+    inner.appendChild(p);
+  }
+  d.appendChild(inner);
+  const n = document.createElement('div');
+  n.className = 'pageno';
+  n.textContent = String(s.no).padStart(2,'0') + ' / ' + String(SLIDES.length).padStart(2,'0');
+  d.appendChild(n);
+  stage.appendChild(d);
+}
+function fit(slide){
+  const inner = slide.querySelector('.inner');
+  let fs = 30;
+  inner.style.fontSize = fs + 'px';
+  while (fs > 9 && (inner.scrollHeight > inner.clientHeight + 1 || inner.scrollWidth > inner.clientWidth + 1)) {
+    fs -= 1;
+    inner.style.fontSize = fs + 'px';
+  }
+}
+let cur = 0, fitted = new WeakSet();
+const slides = [...document.querySelectorAll('.slide')];
+function show(i){
+  cur = Math.max(0, Math.min(slides.length - 1, i));
+  slides.forEach((s,k)=>s.classList.toggle('active', k === cur));
+  const s = slides[cur];
+  if(!fitted.has(s)){ fit(s); fitted.add(s); }
+  document.getElementById('pos').textContent = (cur+1) + ' / ' + slides.length;
+  document.getElementById('bar').style.width = ((cur+1)/slides.length*100) + '%';
+}
+document.getElementById('prev').onclick = ()=>show(cur-1);
+document.getElementById('next').onclick = ()=>show(cur+1);
+addEventListener('keydown', e=>{
+  if(e.key==='ArrowRight'||e.key==='ArrowDown'||e.key===' '||e.key==='PageDown'){e.preventDefault();show(cur+1)}
+  if(e.key==='ArrowLeft'||e.key==='ArrowUp'||e.key==='PageUp'){e.preventDefault();show(cur-1)}
+  if(e.key==='Home'){show(0)} if(e.key==='End'){show(slides.length-1)}
+  if(e.key==='f'||e.key==='F'){
+    if(!document.fullscreenElement){document.documentElement.requestFullscreen?.()}
+    else{document.exitFullscreen?.()}
+  }
+});
+stage.addEventListener('click', e=>{
+  if(!slides[cur].classList.contains('active')) return;
+  const r = stage.getBoundingClientRect();
+  show(e.clientX < r.left + r.width*0.35 ? cur-1 : cur+1);
+});
+addEventListener('resize', ()=>{ fitted = new WeakSet(); fit(slides[cur]) && 0; fitted.add(slides[cur]); });
+show(0);
+</script></body></html>

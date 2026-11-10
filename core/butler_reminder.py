@@ -16,7 +16,11 @@ import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
 
-DEFAULT_PATH = Path(__file__).resolve().parent.parent / 'data' / 'butler_reminders.json'
+from core import guga_paths
+
+# 提醒数据属于运行期数据：必须放用户可写目录。包里如果放在 data/（解压到
+# Program Files 时只读），启动第一次 _save 就会 PermissionError 把进程带崩。
+DEFAULT_PATH = guga_paths.RUNTIME / 'butler_reminders.json'
 
 
 def parse_when(text, now=None):
@@ -57,7 +61,11 @@ def parse_when(text, now=None):
 class ReminderService:
     def __init__(self, path=None, on_due=None):
         self.path = Path(path or DEFAULT_PATH)
-        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.save_error = ''
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+        except OSError:
+            pass
         self.on_due = on_due          # 回调: fn({'id','text','when_text',...})
         self._load()
 
@@ -73,10 +81,18 @@ class ReminderService:
         self._save()
 
     def _save(self):
-        self.path.write_text(
-            json.dumps({'reminders': self._reminders},
-                       ensure_ascii=False, indent=2),
-            encoding='utf-8')
+        """落盘失败只降级不抛：提醒还能在本次会话里用，界面由调用方提示。"""
+        try:
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            self.path.write_text(
+                json.dumps({'reminders': self._reminders},
+                           ensure_ascii=False, indent=2),
+                encoding='utf-8')
+            self.save_error = ''
+            return True
+        except OSError as exc:
+            self.save_error = str(exc)[:160]
+            return False
 
     # ==================== 增删查 ====================
 

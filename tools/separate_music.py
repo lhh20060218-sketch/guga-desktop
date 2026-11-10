@@ -1,8 +1,15 @@
 """Bounded by the caller; isolate neural audio dependencies from Qt."""
 import os,sys,json,hashlib,logging,subprocess
 from pathlib import Path
-ROOT=Path(__file__).resolve().parents[1];MUSIC=ROOT/'runtime/music'
-os.environ['PATH']=str(MUSIC/'bin')+os.pathsep+os.environ.get('PATH','')
+ROOT=Path(__file__).resolve().parents[1];RESOURCE=ROOT/'runtime/music'
+_home=os.environ.get('GUGA_HOME')
+# 禁止回退到 ~（会写到 C:\Users\<用户>\GUGA，属用户目录直属一层）：环境缺失就明确失败。
+_base_env=_home or os.environ.get('LOCALAPPDATA') or os.environ.get('APPDATA')
+if not _base_env:
+    raise SystemExit('缺少 GUGA_HOME/LOCALAPPDATA/APPDATA，拒绝回退到 ~ 写入用户目录根部')
+_out_base=Path(_home) if _home else Path(_base_env)/'GUGA'
+MUSIC=_out_base/'runtime/music'        # 分离产物写用户可写目录；工具链仍读安装目录
+os.environ['PATH']=str(RESOURCE/'bin')+os.pathsep+os.environ.get('PATH','')
 os.environ.setdefault('OMP_NUM_THREADS','4')
 
 def separate(source):
@@ -16,11 +23,11 @@ def separate(source):
   d=json.loads(manifest.read_text(encoding='utf-8'))
   if all(Path(d[k]).is_file() for k in ('vocals','instrumental')):return d
  model='UVR_MDXNET_KARA_2.onnx'
- separator=Separator(output_dir=str(folder),output_format='WAV',model_file_dir=str(MUSIC/'models'),
+ separator=Separator(output_dir=str(folder),output_format='WAV',model_file_dir=str(RESOURCE/'models'),
   log_level=logging.WARNING,normalization_threshold=.95,mdx_params=dict(hop_length=1024,segment_size=256,overlap=.25,batch_size=1,enable_denoise=True))
  separator.load_model(model_filename=model)
  decoded=folder/'decoded.wav'
- if not decoded.exists():subprocess.run([str(MUSIC/'bin/ffmpeg.exe'),'-v','error','-y','-i',str(source),'-ar','44100','-ac','2',str(decoded)],check=True,timeout=40,creationflags=0x08000000)
+ if not decoded.exists():subprocess.run([str(RESOURCE/'bin/ffmpeg.exe'),'-v','error','-y','-i',str(source),'-ar','44100','-ac','2',str(decoded)],check=True,timeout=40,creationflags=0x08000000)
  outputs=separator.separate(str(decoded))
  files=[Path(x) if Path(x).is_absolute() else folder/Path(x).name for x in outputs]
  vocal=next((x for x in files if 'vocal' in x.name.lower()),None)

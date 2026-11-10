@@ -15,7 +15,8 @@ import time
 
 import requests
 
-_CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'ai_config.json')
+from core import guga_paths
+
 
 VISION_PROMPT = """你是酒馆战棋视觉分析器。仔细看这张游戏截图，逐项提取并结构化输出。铁律：只报告画面中明确可见的信息，看不清或不在画面里的写'?'，绝不编造。
 1. 画面判断：这是不是炉石传说酒馆战棋对局画面？如果不是（如主菜单/其他游戏/普通桌面），直接说明画面内容，其余项全部写'?'。
@@ -37,25 +38,54 @@ VISION_PROMPT = """你是酒馆战棋视觉分析器。仔细看这张游戏截�
 
 
 def _load_cfg():
-    try:
-        with open(_CONFIG_PATH, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except Exception:
-        return {}
+    return guga_paths.read_config()
 
 
 def _call_vision(image_b64: str, prompt: str) -> str:
     cfg = _load_cfg()
-    api_key = cfg.get('zhipu_api_key', '')
+    from core import model_endpoint
+
+    # 视觉端点选择：优先用户显式配置的 vision_base_url + vision_api_key，
+    # 都没填再 fallback 到传统的 zhipu_api_key（硬编码智谱端点）。
+    # 统一走 model_endpoint.post：重定向保持 POST，405 + 系统代理时自动绕代理重试。
+    vision_base = str(cfg.get('vision_base_url') or '').strip()
+    vision_key = str(cfg.get('vision_api_key') or '').strip()
+    vision_model = str(cfg.get('vision_model') or '').strip()
+
+    if vision_base and vision_key:
+        # 用户单独配了视觉端点：归一化 + 独立 Key
+        base = model_endpoint.base_of(vision_base) or vision_base.rstrip('/')
+        api_key = vision_key
+        model = vision_model or str(cfg.get('model') or '').strip()
+        source_label = '自定义视觉端点'
+    elif vision_base or vision_key or vision_model:
+        # 只配了部分字段：走主模型端点，但 Key 用 vision_api_key（若有）或主 Key
+        base = model_endpoint.base_of(cfg.get('base_url')) or str(cfg.get('base_url') or '').rstrip('/')
+        api_key = vision_key or str(cfg.get('api_key') or '')
+        model = vision_model or str(cfg.get('model') or '').strip()
+        source_label = '跟随主模型'
+    else:
+        # 完全没配视觉相关：fallback 到传统智谱端点（需要 zhipu_api_key）
+        api_key = str(cfg.get('zhipu_api_key') or '')
+        if not api_key:
+            return '❌ 未配置视觉模型：请在 ai_config.json 填写 vision_base_url + vision_api_key，或填写 zhipu_api_key（旧智谱方案）'
+        base = 'https://open.bigmodel.cn/api/paas/v4'
+        model = vision_model or 'glm-4.6v-flash'
+        source_label = '智谱视觉（旧方案）'
+
+    if not base:
+        return '❌ 视觉端点无效：base_url 为空'
     if not api_key:
-        return '❌ 未配置 zhipu_api_key（ai_config.json）'
-    model = cfg.get('vision_model', 'glm-4.6v-flash')
+        return '❌ 视觉 API Key 为空'
+    if not model:
+        return '❌ 视觉模型名为空'
+
     # 429 限流退避重试（免费版并发限制）
     last_err = ''
     for attempt in range(4):
         try:
-            resp = requests.post(
-                'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+            resp = model_endpoint.post(
+                base + '/chat/completions',
                 headers={
                     'Content-Type': 'application/json',
                     'Authorization': f'Bearer {api_key}',
@@ -76,13 +106,17 @@ def _call_vision(image_b64: str, prompt: str) -> str:
             )
             data = resp.json()
             if resp.status_code == 429:
+                resp.close()
                 last_err = '429 限流'
                 time.sleep(2 * (attempt + 1))
                 continue
             if resp.status_code != 200:
                 err = data.get('error', {}).get('message', str(resp.status_code))
-                return f'❌ 视觉API {resp.status_code}: {err}'
+                extra = '（已绕过系统代理重试）' if getattr(resp, 'guga_proxy_bypass', False) else ''
+                resp.close()
+                return f'❌ 视觉API {resp.status_code}{extra}: {err}'
             content = (data.get('choices') or [{}])[0].get('message', {}).get('content', '')
+            resp.close()
             return content or '❌ 视觉API返回空'
         except requests.exceptions.ConnectionError:
             last_err = '网络连接失败'

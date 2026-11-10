@@ -12,16 +12,18 @@
 无 GUI 依赖: MockAnimator 模拟 SpriteAnimator 的 clip 播放/回调.
 运行: python scripts/demo_armor_switch.py
 """
+import os
 import sys
+from pathlib import Path
 
-REPO = r'D:\rengongzhineng\heimao-zhuochong'
+REPO = os.environ.get('GUGA_DEMO_REPO') or str(Path(__file__).resolve().parents[1])
 sys.path.insert(0, REPO)
 
 from ui.asset_interface import ArmorAssetResolver
 from core.mode_manager import ModeManager
 
-RES = REPO + r'\resources'
-PACKS = REPO + r'\armor_packs'
+RES = str(Path(REPO) / 'resources')
+PACKS = str(Path(REPO) / 'armor_packs')
 
 SEP = '=' * 62
 

@@ -160,15 +160,24 @@ def get_hovered_entity_id():
         return None
 
 
-_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'rating_db.json')
+_LEGACY_DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'rating_db.json')
+try:  # 分数库属运行期数据；旧数据还留在安装目录时只读回退，新写入一律用户目录
+    from core import guga_paths
+    _DB_PATH = str(guga_paths.RUNTIME / 'data' / 'rating_db.json')
+except Exception:  # pragma: no cover
+    _DB_PATH = os.path.join(os.environ.get('LOCALAPPDATA') or os.environ.get('APPDATA')
+                            or os.path.expanduser('~'), 'GUGA', 'runtime',
+                            'data', 'rating_db.json')
 
 
 def _load_db():
-    try:
-        with open(_DB_PATH, 'r', encoding='utf-8') as f:
-            return json.load(f)
-    except Exception:
-        return {'games': [], 'players': {}}
+    for path in (_DB_PATH, _LEGACY_DB_PATH):
+        try:
+            with open(path, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception:
+            continue
+    return {'games': [], 'players': {}}
 
 
 def _save_db(db):

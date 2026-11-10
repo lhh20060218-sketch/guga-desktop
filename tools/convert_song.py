@@ -1,14 +1,22 @@
 """One bounded call to the upstream free Seed-VC demo; no paid fallback."""
-import json,sys,time,shutil,wave,subprocess,hashlib
+import json,sys,time,shutil,wave,subprocess,hashlib,os
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
+RESOURCE=ROOT/'runtime/music'          # 只读工具链（venv / ffmpeg）留在安装目录
+_home=os.environ.get('GUGA_HOME')
+# 禁止回退到 ~（会写到 C:\Users\<用户>\GUGA，属用户目录直属一层）：环境缺失就明确失败。
+_base_env=_home or os.environ.get('LOCALAPPDATA') or os.environ.get('APPDATA')
+if not _base_env:
+    raise SystemExit('缺少 GUGA_HOME/LOCALAPPDATA/APPDATA，拒绝回退到 ~ 写入用户目录根部')
+_out_base=Path(_home) if _home else Path(_base_env)/'GUGA'
+MUSIC=_out_base/'runtime/music'        # 翻唱产物与 library.json 必须写用户可写目录
 
 def convert(source,reference,seconds,title='跳楼机'):
     from gradio_client import Client,handle_file
     source=Path(source).resolve();reference=Path(reference).resolve()
     if not source.is_file() or not reference.is_file():raise ValueError('缺少原曲或咕嘎音色参考文件')
-    folder=ROOT/'runtime/music';folder.mkdir(exist_ok=True,parents=True)
-    separate_python=folder/'.venv/Scripts/python.exe'
+    folder=MUSIC;folder.mkdir(exist_ok=True,parents=True)
+    separate_python=RESOURCE/'.venv/Scripts/python.exe'
     if not separate_python.is_file():raise RuntimeError('缺少隔离的人声分离环境，拒绝将带伴奏混音直接送入音色转换')
     separation=subprocess.run([str(separate_python),str(ROOT/'tools/separate_music.py'),str(source)],capture_output=True,text=True,encoding='utf-8',errors='replace',timeout=180,creationflags=0x08000000)
     stems=None
@@ -40,7 +48,7 @@ def convert(source,reference,seconds,title='跳楼机'):
         except Exception:continue
     if not valid:raise RuntimeError('模型返回的不是完整歌曲，拒绝登记为完整翻唱')
     path,duration=valid[-1];import hashlib;target=folder/('guga-cover-'+hashlib.sha256(title.encode()).hexdigest()[:12]+'.wav')
-    subprocess.run([str(folder/'bin/ffmpeg.exe'),'-v','error','-y','-i',str(path),'-i',stems['instrumental'],'-filter_complex','[0:a]highpass=f=75,lowpass=f=14000,volume=0.95[v];[1:a]volume=0.8[b];[v][b]amix=inputs=2:duration=longest:normalize=0,alimiter=limit=0.95:level=false[out]','-map','[out]','-ar','44100','-c:a','pcm_s16le',str(target)],check=True,timeout=40,creationflags=0x08000000)
+    subprocess.run([str(RESOURCE/'bin/ffmpeg.exe'),'-v','error','-y','-i',str(path),'-i',stems['instrumental'],'-filter_complex','[0:a]highpass=f=75,lowpass=f=14000,volume=0.95[v];[1:a]volume=0.8[b];[v][b]amix=inputs=2:duration=longest:normalize=0,alimiter=limit=0.95:level=false[out]','-map','[out]','-ar','44100','-c:a','pcm_s16le',str(target)],check=True,timeout=40,creationflags=0x08000000)
     manifest_path=folder/'library.json';manifest=json.loads(manifest_path.read_text(encoding='utf-8')) if manifest_path.exists() else {}
     manifest[title]=dict(path=str(target),seconds=duration,verified_full_length=True,provider='Plachta/Seed-VC',voice='guga-current-realtime',quality_reviewed=False,pipeline_version=2,separated_vocals=True)
     manifest_path.write_text(json.dumps(manifest,ensure_ascii=True,indent=2),encoding='utf-8')

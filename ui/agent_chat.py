@@ -5,8 +5,10 @@ import os
 import time
 from pathlib import Path
 
-FAST_DIAGNOSTICS_PATH=Path(__file__).resolve().parents[1]/'runtime/voice/fast_command_diagnostics.json'
-SCREEN_SHARE_DIAGNOSTICS_PATH=Path(__file__).resolve().parents[1]/'runtime/screen-share-lifecycle.json'
+from core import guga_paths
+
+FAST_DIAGNOSTICS_PATH=guga_paths.RUNTIME/'voice/fast_command_diagnostics.json'
+SCREEN_SHARE_DIAGNOSTICS_PATH=guga_paths.RUNTIME/'screen-share-lifecycle.json'
 
 
 def web_fact_from_tool_event(event):
@@ -20,8 +22,8 @@ def web_fact_from_tool_event(event):
     return dict(tool=str(ego.get('tool') or event.get('tool') or '')[:60],
                 url=url,title=title,ok=ego.get('ok'),at=time.time())
 
-from PyQt5.QtCore import Qt, QEvent, QTimer, pyqtSignal
-from PyQt5.QtGui import QFont, QPixmap
+from PyQt5.QtCore import Qt, QEvent, QTimer, QUrl, pyqtSignal
+from PyQt5.QtGui import QFont, QPixmap, QDesktopServices
 from PyQt5.QtWidgets import (QDialog, QFrame, QHBoxLayout, QVBoxLayout, QLabel, QPushButton,
     QTreeWidget, QTreeWidgetItem, QTextBrowser, QPlainTextEdit, QInputDialog, QMenu,
     QSplitter, QCheckBox, QMessageBox)
@@ -97,6 +99,7 @@ class AgentChatWindow(QDialog):
         self._active_workflow=None
         self._active_route=None
         self._active_task_text=''
+        self._paused_task_text=''      # 被叫停的任务原文，用于「继续」时从检查点续跑
         from core.task_speech import TaskSpeechQueue
         self._task_speech=TaskSpeechQueue()
         self._task_heartbeat_timer=QTimer(self)
@@ -236,6 +239,11 @@ class AgentChatWindow(QDialog):
         for m in visible:
             role=m['role'];is_user=role=='user';detail=m in hidden
             text=html.escape(m['content']).replace('\n','<br>')
+            extra=''
+            if not is_user and not detail:
+                delivery=self._message_delivery(m)
+                if delivery:
+                    extra=self._delivery_html(delivery,m.get('id'))
             if detail:
                 key=str(m['id'])
                 summary=html.escape(m['content'].split('\n',1)[0])
@@ -243,7 +251,7 @@ class AgentChatWindow(QDialog):
             color='#edf2ff' if is_user else ('#f6f7f9' if detail else '#ffffff')
             who='你' if is_user else ('执行记录' if detail else self.active_profile['display_name'])
             pad='12' if not detail else '8'
-            content=f'<td bgcolor="{color}" style="padding:{pad}px;color:#303540"><span style="font-size:10px;color:#9aa1ad">{who}</span><br><p style="line-height:1.65;font-size:13px">{text}</p></td>'
+            content=f'<td bgcolor="{color}" style="padding:{pad}px;color:#303540"><span style="font-size:10px;color:#9aa1ad">{who}</span><br><p style="line-height:1.65;font-size:13px">{text}</p>{extra}</td>'
             blank='<td width="30"></td>'
             parts.append('<table width="100%" cellspacing="0" cellpadding="0" style="margin-top:12px"><tr>'+ (blank+content if is_user else content+blank)+'</tr></table>')
         self.view.setHtml(''.join(parts))
@@ -274,6 +282,9 @@ class AgentChatWindow(QDialog):
         QMessageBox.information(self,'快捷操作','在支持读取文字选区的软件里选中文字，鼠标旁出现「解释 / 截图分析」。\nCtrl+Alt+A 或「截图」：截取当前屏幕并直接发给模型。\nCtrl+Alt+E：直接解释当前选词。\n更多菜单保留框选截图和框选识字。\n临时解释不加入聊天记录，右下角可调整对话窗大小。'+('\n快捷键已被其他软件占用：'+', '.join(failed)+'；可使用窗口按钮。' if failed else ''))
 
     def _log_link(self, url):
+        if url.scheme() in ('guga-file', 'guga-missing', 'guga-dir'):
+            self._delivery_link(url)
+            return
         if url.scheme() == 'guga-log':
             key = url.path()
             if key in self.expanded_logs:
@@ -282,9 +293,150 @@ class AgentChatWindow(QDialog):
                 self.expanded_logs.add(key)
             self.render()
 
+    # ---------- 文件交付 ----------
+    def _message_delivery(self, message):
+        raw=(message or {}).get('meta')
+        if not raw:return None
+        try:
+            value=json.loads(raw) if isinstance(raw,str) else raw
+        except Exception:
+            return None
+        delivery=value.get('delivery') if isinstance(value,dict) else None
+        return delivery if isinstance(delivery,dict) else None
+
+    def _delivery_meta(self, key):
+        try:
+            row=self.store.message(int(key))
+        except Exception:
+            row=None
+        return self._message_delivery(row or {})
+
+    def _delivery_html(self, delivery, key):
+        from core.file_delivery import human_size
+        files=delivery.get('files') or []
+        missing=delivery.get('missing') or []
+        failed=delivery.get('failed') or []
+        status=str(delivery.get('status') or '')
+        if status=='empty':return ''
+        root=html.escape(str(delivery.get('root') or ''))
+        rows=[]
+        for index,item in enumerate(files[:8]):
+            rows.append('<div style="margin-top:3px"><a href="guga-file:%s:%d" style="color:#2f63d8;'
+                        'text-decoration:none">%s</a><span style="color:#98a0ae;font-size:10px">　%s</span></div>'
+                        %(key,index,html.escape(str(item.get('name') or '文件')),human_size(item.get('size'))))
+        if len(files)>8:
+            rows.append('<div style="margin-top:3px;color:#8d95a5;font-size:11px">另外 %d 个文件也已在交付目录</div>'
+                        %(len(files)-8))
+        for index,item in enumerate(missing[:4]):
+            rows.append('<div style="margin-top:3px;color:#b23b32;font-size:11px">未找到 '
+                        '<a href="guga-missing:%s:%d" style="color:#b23b32">%s</a></div>'
+                        %(key,index,html.escape(str(item.get('name') or item.get('path') or '文件'))))
+        for item in failed[:3]:
+            rows.append('<div style="margin-top:3px;color:#b23b32;font-size:11px">复制失败：%s</div>'
+                        %html.escape(str(item.get('name') or '文件')))
+        if status=='none':head='本轮没有可交付文件'
+        elif status=='error':head='交付登记失败'
+        elif status=='failed':head='交付未完成'
+        elif status=='missing':head='产物缺失'
+        else:head='已交付 %d 个文件'%len(files)
+        detail=('<div style="margin-top:3px;color:#8d95a5;font-size:11px">如果你预期收到文件，'
+                '可以让我换个格式，或说“把文件放到交付目录”。</div>') if status=='none' else ''
+        return ('<div style="margin-top:9px;border-top:1px solid #e8ebf2;padding-top:7px">'
+                '<div style="font-size:11px;color:#5f6a7d;font-weight:600">%s</div>%s%s'
+                '<div style="margin-top:6px;font-size:10px;color:#98a0ae;word-break:break-all">'
+                '交付目录：<a href="guga-dir:%s" style="color:#6f7fa3">%s</a></div></div>'
+                )%(html.escape(head),detail,''.join(rows),key,root)
+
+    def _open_folder(self, path):
+        from core.file_delivery import DELIVERY_ROOT
+        folder=Path(str(path or DELIVERY_ROOT))
+        try:folder.mkdir(parents=True,exist_ok=True)
+        except Exception:folder=DELIVERY_ROOT
+        if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(folder))):
+            QMessageBox.warning(self,'打不开交付目录','目录：\n%s'%folder)
+
+    def _delivery_warning(self, title, message, root=None):
+        box=QMessageBox(QMessageBox.Warning,title,message,QMessageBox.Ok,self)
+        folder=box.addButton('打开交付目录',QMessageBox.ActionRole)
+        box.exec_()
+        if box.clickedButton()==folder:self._open_folder(root)
+
+    def _delivery_link(self, url):
+        from core.file_delivery import DELIVERY_ROOT
+        payload=url.toString().partition(':')[2] or url.path().lstrip('/')
+        scheme=url.scheme()
+        if scheme=='guga-dir':
+            delivery=self._delivery_meta(payload)
+            self._open_folder((delivery or {}).get('root') or DELIVERY_ROOT)
+            return
+        key,_,index=payload.partition(':')
+        delivery=self._delivery_meta(key)
+        bucket='missing' if scheme=='guga-missing' else 'files'
+        items=(delivery or {}).get(bucket) or []
+        try:item=items[int(index)]
+        except Exception:item=None
+        if not item:
+            self._delivery_warning('文件信息已失效','这条交付记录没有找到对应条目。',(delivery or {}).get('root'))
+            return
+        if scheme=='guga-missing':
+            self._delivery_warning('文件未找到','回复里提到的文件不在了，可能已被移动或删除：\n%s'
+                                   %str(item.get('path') or ''),(delivery or {}).get('root'))
+            return
+        path=Path(str(item.get('path') or ''))
+        if not path.exists():
+            self._delivery_warning('文件已被移动或删除','原路径：\n%s\n\n可以回到交付目录查找。'
+                                   %path,(delivery or {}).get('root'))
+            return
+        if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(path))):
+            self._delivery_warning('系统没有可打开该文件的程序','文件：\n%s'%path,(delivery or {}).get('root'))
+
+    def _deliver_turn(self, ident, result, workspace_allowed=True):
+        from core.file_delivery import deliver
+        try:
+            user_text=''
+            for item in reversed(self.store.messages(ident,20)):
+                if item['role']=='user':
+                    user_text=item['content'];break
+            kind=result.get('kind')
+            workspace=None;since=None
+            if workspace_allowed and kind not in ('answer','dsh','dialogue'):
+                data=self.agent.journal.data or {}
+                if data.get('conversation')==ident:workspace=data.get('workspace')
+                since=getattr(self,'_turn_started',None) or None
+            return deliver(result.get('text') or '',user_text=user_text,workspace=workspace,
+                           since=since,conversation=ident)
+        except Exception as exc:
+            return dict(version=1,root='',status='error',files=[],missing=[],
+                        failed=[dict(name='交付登记',error=str(exc)[:120])],oversized=[])
+
+    def _delivery_notice(self, delivery):
+        if not delivery:return ''
+        files=delivery.get('files') or []
+        if files:return '\n已交付 %d 个文件 · 点开对话打开'%len(files)
+        if delivery.get('missing'):return '\n有 %d 个文件未找到 · 点开对话查看'%len(delivery['missing'])
+        if delivery.get('status')=='none':return '\n本轮没有生成可交付文件'
+        return ''
+
+    def _bubble_text(self, text, delivery):
+        return (text or '')+self._delivery_notice(delivery)
+
     def open_permissions(self):
         from ui.app_permissions import AppPermissionsDialog
         AppPermissionsDialog(self.runtime.apps, self).exec_()
+
+    def open_model_settings(self):
+        """模型设置：右键菜单与标题栏「模型」按钮共用，保存后立即更新运行中的 agent。"""
+        from ui.model_settings import open_model_settings
+        return open_model_settings(self, on_saved=self._apply_model_config)
+
+    def _apply_model_config(self, cfg):
+        try:
+            if getattr(self, 'agent', None) is not None:
+                self.agent.config.clear()
+                self.agent.config.update(cfg)
+            self.status.setText('已切换模型：%s' % (cfg.get('model') or ''))
+        except Exception:
+            pass
 
     def _project_selection(self):
         item = self.tree.currentItem()
@@ -378,6 +530,45 @@ class AgentChatWindow(QDialog):
                 return True
         return super().eventFilter(obj, event)
 
+    def _handle_control_command(self, text, record_user=True, voice=False):
+        """文字/语音叫停与继续：命中即执行，不经过模型、不确认。"""
+        from core import input_guard
+        command = input_guard.parse_control_command(text)
+        if not command:
+            return False
+        if command == 'pause':
+            if self.busy:
+                input_guard.pause('用户叫停')
+                self._paused_task_text = self._active_task_text or self._paused_task_text
+                reply = '已暂停，控制权还给你。要恢复就说「继续」。'
+            else:
+                reply = '现在没有正在进行的控制，不需要暂停。'
+        elif input_guard.is_paused():
+            state = input_guard.resume()
+            if not state.get('ok'):
+                reply = state.get('message') or '还没能恢复控制。'
+            else:
+                pending = self._paused_task_text
+                self._paused_task_text = None
+                reply = '已恢复控制，目标窗口和焦点都重新确认过了。'
+                if pending:
+                    reply += ' 接着做：' + pending[:40]
+                    if record_user: self.store.append(self.active_id, 'user', text)
+                    self.editor.clear(); self.render()
+                    self.send('继续：' + pending, record_user=False, force_agent=True)
+                    return True
+        else:
+            reply = '当前没有暂停，控制正常。'
+        if record_user: self.store.append(self.active_id, 'user', text)
+        self.store.append(self.active_id, 'assistant', reply)
+        self._show_active_bubble(reply)
+        self.status.setText(reply)
+        if voice and self.voice_active and self.voice:
+            try: self.voice.notify_battleground('control-command', reply)
+            except Exception: pass
+        self.editor.clear(); self.render()
+        return True
+
     def send(self, text=None, record_user=True, force_agent=False, execution_context=None, use_attachment=None,read_reply=False):
         text = text if isinstance(text, str) else self.editor.toPlainText().strip()
         image=self._pending_image if (record_user if use_attachment is None else use_attachment) else None
@@ -389,11 +580,33 @@ class AgentChatWindow(QDialog):
             execution_context=dict(execution_context or {},_user_image_url=image)
         if not text.strip():
             return
+        # 「暂停 / 停下 / 别动了」这类短句先于一切路由：立即置暂停并回话，不交给模型
+        if self._handle_control_command(text, record_user=record_user):
+            return True
         if record_user:self._last_user_activity=time.monotonic()
         self._last_personal_answer=None
         # Explicit user memory/review controls are local, with no model/API round trip.
         if not image and not self.busy and self._personal_command(text,record_user):
             self.editor.clear();self.render();return True
+        # 点名外部工具（“用豆包生成200字作文”）：先确认真装了、有可用通道。
+        # 没装就直接在界面里说清缺什么、去哪装——绝不让本鹅自己的模型代写冒充。
+        from core import tool_mandate
+        mandate=tool_mandate.detect(text) if not image else None
+        # 复合任务（A 工具产出 → B 工具消费）先拆成适配器串联，交给执行器按序真机跑；
+        # 否则会落进通用自主执行，去抓前台窗口（常常抓到咕嘎自己）然后收工。
+        from core import adapter_chain
+        chain=adapter_chain.detect(text) if not image else None
+        self._turn_mandate=mandate
+        self._turn_chain=chain
+        if mandate and not chain:
+            state=tool_mandate.availability(mandate)
+            if not state.get('installed'):
+                message=tool_mandate.install_message(mandate)
+                if record_user:self.store.append(self.active_id,'user',text)
+                self.store.append(self.active_id,'assistant',message)
+                self._show_active_bubble(message)
+                self.status.setText('缺外部工具 · %s 未安装'%(mandate.get('name') or ''))
+                self.editor.clear();self.render();return True
         memory_context=''
         if record_user:
             recalled=self.memory.recall(self.active_agent_id,text,limit=6)
@@ -405,7 +618,7 @@ class AgentChatWindow(QDialog):
             if team:team.user_interaction(self.active_agent_id)
         from core.fast_commands import match
         fast=match(text)
-        if fast.get('matched') and not force_agent and not image and self.route_combo.currentData()!='chat':
+        if fast.get('matched') and not force_agent and not image and (self.route_combo.currentData()!='chat' or fast.get('action')=='open_app'):
             if record_user:self.store.append(self.active_id,'user',text)
             self._fast_command(fast)
             self.editor.clear();self.render()
@@ -455,14 +668,18 @@ class AgentChatWindow(QDialog):
         from core.task_router import choose_task_route
         from core.task_feedback import EvidenceProgress
         workflow=self.runtime.workflows.match(text) or workflow_for(text)
-        task=force_agent or uses_task(text,self.route_combo.currentData(),bool(image)) or bool(workflow and self.route_combo.currentData()!='chat')
+        task=force_agent or bool(mandate) or bool(chain) or uses_task(text,self.route_combo.currentData(),bool(image)) or bool(workflow and self.route_combo.currentData()!='chat')
         from core.personal_harness import use_dsh
         backend=self.store.preference('execution_backend') or 'auto'
         route=choose_task_route(text,bool(image),backend,workflow) if task else None
-        dsh=bool(route and route.get('executor')=='dsh')
+        dsh=bool(route and route.get('executor')=='dsh') and not chain
         self._active_workflow=workflow if task else None
         self._active_route=route
         self._active_task_text=text if task else ''
+        self._turn_started=time.time()
+        if dsh:
+            from core import control_session
+            control_session.session.begin(step='交给执行器执行', task=text[:120])
         try:
             observation=self.runtime.screen_share.observation() if self.runtime.screen_share.status().get('active') else None
             shared_context=self.runtime.screen_share.assist_context() if observation else None
@@ -475,6 +692,8 @@ class AgentChatWindow(QDialog):
                 handoff=dict(execution_context or {},_agent_id=self.active_agent_id,
                     _agent_profile=self.active_profile,_memory_context=memory_context,
                     _route=route,_workflow=workflow,
+                    _tool_mandate=mandate,
+                    _adapter_chain=chain,
                     _screen_context=shared_context,_screen_observation=observation)
                 if shared_image and not handoff.get('_user_image_url'):handoff['_user_image_url']=shared_image
                 if dsh:
@@ -549,13 +768,15 @@ class AgentChatWindow(QDialog):
         from core.companion_dialogue import speech_answer
         text=result.get('text') if result.get('ok') else '这个问题暂时没能答完：'+result.get('error','连接未完成')
         ident=context['conversation_id'];agent_id=context['agent_id']
-        self.store.append(ident,'assistant',text);self.memory.add_dialogue(agent_id,'assistant',text)
+        delivery=self._deliver_turn(ident,result,workspace_allowed=False) if result.get('ok') else None
+        self.store.append(ident,'assistant',text,meta=dict(delivery=delivery) if delivery else None)
+        self.memory.add_dialogue(agent_id,'assistant',text)
         voice=context.get('voice')
         if voice and self.voice_active and voice is self.voice:
             self._voice_readback=True
             voice.resolve_task(context['call_id'],dict(ok=bool(result.get('ok')),answer=speech_answer(text),error=result.get('error','')))
         if ident==self.active_id and agent_id==self.active_agent_id:
-            self._show_active_bubble(text);self.render()
+            self._show_active_bubble(self._bubble_text(text,delivery));self.render()
             if not self.voice_active and context['read_aloud']:
                 from core.agent_identity import voice_preferences
                 self.pet._tts.speak(speech_answer(text),voice_profile=voice_preferences(context['profile']))
@@ -729,6 +950,13 @@ class AgentChatWindow(QDialog):
             self._task_reporter.tool_start(event['name'],event.get('arguments',{}))
         summary=event.get('summary','正在执行任务')
         self._task_summary=summary
+        if event.get('phase')=='tool_start':
+            from core import control_session
+            if control_session.is_control_tool(event.get('name')):
+                if not control_session.session.active():
+                    control_session.session.begin(step=summary or '准备操作', task=self._active_task_text[:120])
+                app=control_session.describe_tool_app(event.get('name'),event.get('arguments'))
+                control_session.session.update(app=app or None,step=summary or None,source='agent')
         if self.voice_active and self.voice:
             self.voice.set_task_context(dict(running=True,kind=self._run_kind,goal=self._active_task_text,summary=summary))
         self.status.setText(summary[:120])
@@ -885,12 +1113,14 @@ class AgentChatWindow(QDialog):
                             self.runtime.dsh.archive.acknowledge_inputs(ticket,[x['id'] for x in pending])
                     QTimer.singleShot(150,followup)
                 return
-            self.store.append(ident,'assistant' if ok else 'system',text)
+            delivery=self._deliver_turn(ident,result,workspace_allowed=False) if ok else None
+            self.store.append(ident,'assistant' if ok else 'system',text,
+                              meta=dict(delivery=delivery) if delivery else None)
             self.memory.add_dialogue(agent_id,'assistant',text)
             self.pet._multi_agent.work_state(agent_id,'result' if ok else 'error','dsh:'+event.get('job_id',''))
             if self.active_id==ident:
                 self.status.setText('后台执行器已返回 · 待核验' if ok else 'DSH 任务未完成')
-                self._show_active_bubble(text);self.render()
+                self._show_active_bubble(self._bubble_text(text,delivery));self.render()
             if self.voice_active and self.voice and ident==self.active_id and agent_id==self.active_agent_id:
                 self.voice.set_task_context(dict(running=False,kind='dsh',summary=text))
                 self.voice.notify_battleground(event.get('job_id','')+'done',text[:800])
@@ -957,8 +1187,17 @@ class AgentChatWindow(QDialog):
         if result.get('kind')!='answer' and self.agent.cancel_event.is_set():
             result = dict(result, ok=False, error='本轮已停止，已完成的操作保留在记录中')
         if was_task:
-            state='idle' if result.get('needs_input') else 'cancelled' if self.agent.cancel_event.is_set() else 'success' if result.get('ok') else 'error'
+            if result.get('paused'):
+                state='paused'
+            elif result.get('stopped'):
+                state='cancelled'
+            else:
+                state='idle' if result.get('needs_input') else 'cancelled' if self.agent.cancel_event.is_set() else 'success' if result.get('ok') else 'error'
             self.pet._multi_agent.work_state(self.active_agent_id,state,'turn:'+ident)
+            from core import control_session
+            if not result.get('paused'):     # 暂停保留会话态，标识条停在「已暂停」，不伪造结束
+                control_session.session.finish(bool(result.get('ok')),
+                                               str(result.get('error') or result.get('text') or '')[:80])
         else:self.pet._multi_agent.work_state(self.active_agent_id,'idle','turn:'+ident)
         voice_task = self._voice_task
         if was_task and self.voice_active and self.voice:
@@ -972,14 +1211,30 @@ class AgentChatWindow(QDialog):
             self._voice_readback=True
             from core.companion_dialogue import speech_answer
             self.voice.notify_battleground('task-finished-'+result.get('task_id',ident),
-                ('本轮回答：' if result.get('kind')=='answer' else '任务执行结果：')+
-                (speech_answer(result.get('text','')) if result['ok'] else result.get('error','未完成')))
+                ('已暂停，控制权还给你。要恢复就说「继续」。' if result.get('paused') else
+                 ('本轮回答：' if result.get('kind')=='answer' else '任务执行结果：')+
+                 (speech_answer(result.get('text','')) if result['ok'] else result.get('error','未完成'))))
+        # 交付前来源校验：用户点名了外部工具，就必须有真实工具回执；
+        # 来源不明的成品一律不可交付（跳步）。
+        mandate=getattr(self,'_turn_mandate',None)
+        if result['ok'] and mandate and result.get('kind') not in ('answer','dsh','dialogue'):
+            try:
+                from core import tool_mandate as _mandate
+                events=(getattr(getattr(self,'agent',None),'journal',None).data or {}).get('events',[])
+                if not _mandate.evidence_ok(events):
+                    result=dict(result,ok=False,
+                        error=_mandate.failure_message(mandate,'本轮没有任何工具回执'))
+            except Exception:
+                pass
+        self._turn_mandate=None
         if result['ok']:
-            self.store.append(ident, 'assistant', result['text'])
+            delivery=self._deliver_turn(ident,result)
+            self.store.append(ident, 'assistant', result['text'],
+                              meta=dict(delivery=delivery) if delivery else None)
             self.memory.add_dialogue(self.active_agent_id,'assistant',result['text'])
             voice_reply=(self.read_aloud.isChecked() or result.get('read_aloud')) and not self.voice_active and result.get('kind')!='dsh'
             if not self.voice_active and not self.isVisible() and not voice_reply:
-                self._show_active_bubble(result['text'])
+                self._show_active_bubble(self._bubble_text(result['text'],delivery))
             self.status.setText('●  就绪')
             expression = result['expression'] if result.get('expression_explicit',result['expression']!='normal') else None
             if voice_reply:
@@ -991,6 +1246,13 @@ class AgentChatWindow(QDialog):
                 if result['action'] != 'none':
                     if self.voice_active:self.pet._queue_voice_gesture(result['action'])
                     else:self._active_gesture(result['action'])
+        elif result.get('paused'):
+            self._paused_task_text = task_text or self._paused_task_text
+            notice = '已暂停：控制权已经还给你，之后不会再动鼠标键盘。说「继续」我就从刚才那步接着做。'
+            self.store.append(ident, 'assistant', notice)
+            self.memory.add_dialogue(self.active_agent_id, 'assistant', notice)
+            self.status.setText('已暂停')
+            self._show_active_bubble('已暂停，控制权还给你。')
         else:
             self.store.append(ident, 'assistant', ('等待你的决定：' if result.get('needs_input') else '这次没有完成：')+result.get('error', '本轮未完成'))
             self.memory.add_dialogue(self.active_agent_id,'assistant','这次没有完成：'+result.get('error','本轮未完成'))
@@ -1002,6 +1264,11 @@ class AgentChatWindow(QDialog):
             self.render()
 
     def stop_turn(self):
+        from core import control_session
+        # 只发中止请求，不在这里回执：回执必须等执行器真正停手（input_guard 的那次
+        # assert_active）或本轮结束（_completed 的 finish）再写，否则状态提前落到
+        # STOPPED，执行器就不再拦键鼠事件，变成“点了停止鼠标还动”。
+        control_session.session.request_stop('chat-stop')
         self._task_speech.clear()
         self.runtime.media.stop()
         self.pet._multi_agent.work_state(self.active_agent_id,'cancelled','turn:'+self.active_id)
@@ -1483,7 +1750,7 @@ class AgentChatWindow(QDialog):
             query=command['report_query']
             result.update(execution_pending=True,message='已请求默认浏览器搜索，正在核对网页摘要后汇报')
             QTimer.singleShot(0,lambda:self.send('请用web_search搜索：'+query+'。根据工具返回的摘要简短汇报，并附来源链接。浏览器已提交打开请求，无需再次打开。',record_user=False))
-        if not result.get('ok') and command.get('action') in ('open_app','open_url','web_search') and result.get('code')!='app_not_found' and command.get('source_text') and not result.get('launch_requested') and current:
+        if not result.get('ok') and command.get('action') in ('open_app','open_url','web_search') and result.get('code') not in ('app_not_found','target_ambiguous') and command.get('source_text') and not result.get('launch_requested') and current:
             original=command['source_text'];failure=dict(result)
             result=dict(ok=True,execution_pending=True,delegated=True,silent=True,message='快捷路径未完成，已交给内部 DeepSeek 继续处理')
             context=dict(origin='voice' if self.voice_active else 'text',fast_failure=failure,original_request=original)

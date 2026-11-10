@@ -156,7 +156,7 @@ class RulesTests(unittest.TestCase):
 class ModelTests(unittest.TestCase):
     def setUp(self):
         self.s = validate_snapshot(demo())
-        self.engine = DecisionEngine({"api_key": "test-secret-do-not-print",
+        self.engine = DecisionEngine({"api_key": "TEST-ONLY-NOT-A-KEY",
             "base_url": "https://opencode.ai/inference/go/openai/v1", "model": "deepseek-v4.1-flash"})
 
     def response(self, picked=None):

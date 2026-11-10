@@ -10,6 +10,7 @@ from PyQt5.QtWidgets import (QDialog, QFormLayout, QVBoxLayout, QHBoxLayout,
     QLineEdit, QComboBox, QCheckBox, QSpinBox, QPushButton, QLabel,
     QDialogButtonBox, QMessageBox, QPlainTextEdit, QWidget, QFrame, QScrollArea,
     QSizePolicy)
+from core import guga_paths
 from core.realtime_voice import CONFIG_PATH, DEFAULTS, connection_url, load_settings
 
 
@@ -18,11 +19,7 @@ class VoiceSettingsDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle('咕嘎 · 实时语音配置')
         self.setMinimumWidth(560)
-        try:
-            with CONFIG_PATH.open(encoding='utf-8-sig') as f:
-                self._config = json.load(f)
-        except FileNotFoundError:
-            self._config = {}
+        self._config = guga_paths.read_config(path=CONFIG_PATH)
         cfg = dict(DEFAULTS, **self._config.get('realtime_voice', {}))
         layout = QVBoxLayout(self)
         note = QLabel('千问 AI 平台只需 API Key，无需业务空间 ID。\nKey只保存到本机 ai_config.json，已由Git忽略。')
@@ -159,18 +156,18 @@ class VoiceSettingsDialog(QDialog):
             checked['workspace_id'] = checked['workspace_id'] or os.getenv('DASHSCOPE_WORKSPACE_ID', '')
             connection_url(checked)
             # Re-read immediately before save to preserve unrelated current configuration.
-            try:
-                with CONFIG_PATH.open(encoding='utf-8-sig') as f:
-                    current = json.load(f)
-            except FileNotFoundError:
-                current = {}
+            current = guga_paths.read_config(path=CONFIG_PATH)
             current['realtime_voice'] = cfg
-            tmp = CONFIG_PATH.with_suffix('.json.tmp')
-            tmp.write_text(json.dumps(current, ensure_ascii=False, indent=2), encoding='utf-8')
-            os.replace(tmp, CONFIG_PATH)
         except Exception as exc:
             QMessageBox.warning(self, '配置未保存', str(exc))
             return
+        try:
+            guga_paths.write_config(current, path=CONFIG_PATH)
+        except Exception as exc:
+            guga_paths.remember_config(current)
+            QMessageBox.warning(self, '配置未能写入磁盘',
+                                '%s\n本次已临时生效，重启后可能需要重新填写。\n目标路径：%s'
+                                % (exc, CONFIG_PATH))
         self.accept()
 
 

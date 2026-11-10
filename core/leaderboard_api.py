@@ -30,8 +30,13 @@ _HEADERS = {
     'Referer': 'https://hs.blizzard.cn/community/leaderboards/index.html',
     'Accept': 'application/json, text/plain, */*',
 }
-_CACHE_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                           'data', 'leaderboard_cache.json')
+try:  # 排行榜缓存属运行期数据，不能写进安装目录
+    from core import guga_paths
+    _CACHE_PATH = str(guga_paths.RUNTIME / 'leaderboard_cache.json')
+except Exception:  # pragma: no cover
+    _CACHE_PATH = os.path.join(os.environ.get('LOCALAPPDATA') or os.environ.get('APPDATA')
+                               or os.path.expanduser('~'), 'GUGA', 'runtime',
+                               'leaderboard_cache.json')
 _CACHE_TTL = 7200  # 2小时过期(秒)
 
 # 内存缓存

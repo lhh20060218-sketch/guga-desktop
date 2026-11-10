@@ -1,0 +1,44 @@
+{
+  "source": "butler_urge.mp4",
+  "action": "urge",
+  "playback": "loop",
+  "source_size": [
+    1080,
+    1920
+  ],
+  "target_size": [
+    458,
+    660
+  ],
+  "fps": 24,
+  "key_median": [
+    154.0,
+    180.0,
+    112.0
+  ],
+  "scale": 0.39887,
+  "span_raw": 1326.2,
+  "foot_raw": [
+    1739.0,
+    546.6
+  ],
+  "baseline": 620,
+  "frames": 98,
+  "key_drift": [
+    0.38,
+    0.14,
+    0.56
+  ],
+  "alpha_cov": 0.3586,
+  "fringe_before": 0.00354,
+  "fringe_after": 0.0,
+  "loop_tail": {
+    "alpha": 0.0056,
+    "rgb": 9.52
+  },
+  "glow_protected": 0,
+  "loop_seam_ok": true,
+  "tail_trimmed": 0,
+  "loop_seam_diff": 0.0051,
+  "edge_green_after": 0.0
+}

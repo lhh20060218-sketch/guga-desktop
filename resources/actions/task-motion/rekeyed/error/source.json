@@ -1,0 +1,17 @@
+{
+  "action": "error",
+  "frames": 98,
+  "canvas": [
+    458,
+    660
+  ],
+  "baseline": 620,
+  "body_height": 537.0,
+  "scale": 1.204,
+  "offset": [
+    -5,
+    -101
+  ],
+  "matte": "border-key + GrabCut + unpremultiply",
+  "from_legacy": "resources\\actions\\task-motion\\error\\frames"
+}

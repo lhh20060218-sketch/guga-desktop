@@ -9,13 +9,12 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from core.agent_memory import safe_text
-
-ROOT = Path(__file__).resolve().parents[1]
+from core import guga_paths
 
 
 class WorkflowCatalog:
     def __init__(self, path=None):
-        self.path = Path(path or ROOT/'runtime/workflows.sqlite3')
+        self.path = Path(path or guga_paths.RUNTIME/'workflows.sqlite3')
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.connect() as db:
             db.executescript('''

@@ -1,10 +1,17 @@
 # ================= 凭据（绝不入库） =================
 ai_config.json
+ai_config.json*
 ai_config.json.tmp
+ai_config.*.bak.json
+ai_config.private*.json
+ai_config.local*.json
 .env
 *.key
 *.pem
 id_rsa*
+id_ed25519*
+*guga_deploy*
+.ssh/
 
 # ================= 运行时数据（含真实用户/任务/证据，不入库） =================
 cloud/data/
@@ -55,3 +62,45 @@ Thumbs.db
 
 # ================= 参赛无关素材红线：不使用任何第三方商业 IP / DeepSeek 二创 =================
 resources/multiagent/dafish/
+
+# ================= 本机验收台与缓存（体积大、含本机路径，绝不入库） =================
+tools/clean_bench/
+tools/clean_bench/.cache/
+tools/qa/.cache/
+temp_sprite_check/
+release-private/
+
+# ================= 历史备份快照（保留在本地，不入库；正式知识在 knowledge/ 下） =================
+knowledge/_backup/
+
+# ================= 本机自检报告（含开发机绝对路径，属于运行期产物） =================
+agent/guga_selfcheck_report.json
+
+# ================= 压缩包/发行件（走 GitHub Releases，不进仓库） =================
+*.zip
+*.7z
+*.rar
+dist/*.json
+dist/*.sha256
+dist/.build.lock
+
+# ================= 服务器运行数据与账号库（含口令哈希、配对令牌，绝不入库） =================
+cloud/users.json
+cloud/sessions.json
+cloud/inventory.json
+cloud/usage.json
+cloud/llm_config.json
+
+# ================= 本机生成的 MCP 配置片段（含开发机绝对路径） =================
+guga-snippets.json
+
+# ================= 部署运维资料（含服务器地址与密钥路径，走本地保管） =================
+docs/密钥轮换清单.md
+
+# ================= 开发期诊断脚本与窗口截图（含本机路径与桌面内容） =================
+_diag/
+diagnose*
+tools/_shot_*.png
+tools/_probe_*.py
+tools/_check_*.py
+

@@ -200,6 +200,7 @@
 - **如何确认点对**：**左栏该项变白底卡片（选中态）且顶部出现蓝色实心 `+ Blank`**。列表没被过滤 = 没切成功
 - **易混按钮**：左栏竖排的 `New`（绿色加号）——`New` 去**模板中心**，`Docs` 只**过滤列表**
 - **误点后果与恢复**：不改任何文件，点左栏 `Home` 回总览
+- **证据**：`imgs/wps-btn_home_rail-1.png`（本机整窗：左栏竖排 `Home`/`New`/`WPS AI`/`Docs`/`Slides`/`Sheets`/`PDF`，`Docs` 为白底选中态，内容区 `+ Blank` / `Open` / `Create from Template` / `AI Spell Check` / `Improve Writing`，`Recent` 仅 `WPS Docs Quick Start Guide.docx`，右侧 `File Information` + `Select a file to view details`）
 - **对话可用性**：与对话无关
 
 ### W-12 Docs 视图里的实心 `+ Blank`
@@ -308,7 +309,7 @@
 
 - **按钮原文**：`Slides`（橙色方块内白色 `P` + 下方文字）
 - **点击后果**：首页**就地切换成幻灯片过滤**，不切窗口、标题仍是 `Home - WPS Office`、不新开标签
-- **结果锚文本（逐字）**：`Recent` 列表只剩一行 `WPS Slides Quick Start Guide.pptx` + `Local`，路径列 `C:\Users\<user>\...`，时间 `Today 04:22`，大小 `814 KB`；左栏 `Slides` 出现白色圆角选中框；按钮行 `+ Blank` 仍为**蓝色**
+- **结果锚文本（逐字）**：`Recent` 列表只剩一行 `WPS Slides Quick Start Guide.pptx` + `Local`，路径列被界面截断显示为 `C:\Users\…`（用户名段以省略号收尾，本库不转录其真值），时间 `Today 04:22`，大小 `814 KB`；左栏 `Slides` 出现白色圆角选中框；按钮行 `+ Blank` 仍为**蓝色**
 - **如何确认点对**：**列表文件名后缀从 `.docx` 变成 `.pptx`**，且左栏该项有白色选中底
 - **易混按钮**：与上方的 `WPS AI`（紫色星）紧邻，两个图标之间只隔约 10 像素；与底部 `Create from Template` 的模板分类不是一处
 - **误点后果与恢复**：只是筛选视图，不改文件；点 `Home` 图标可回全类型 `Recent`

@@ -1,0 +1,34 @@
+{
+  "name": "heart",
+  "frames": 239,
+  "native_fps": 24.0,
+  "canvas": [
+    458,
+    660
+  ],
+  "weight": 1.0,
+  "normalization": {
+    "source_canvas": [
+      227,
+      326
+    ],
+    "source_body_height": 291.0,
+    "source_baseline": 310.0,
+    "scale": 1.8454,
+    "body_height": 537,
+    "baseline": 620,
+    "canvas": [
+      458,
+      660
+    ],
+    "target_geometry": "v2 idle 中位角色高度 / 脚底 620 / 中心 229"
+  },
+  "source_label": "用户提供的豆包生成动画",
+  "source_start": 0.04,
+  "requested_seconds": 9.96,
+  "matte": "u2netp",
+  "interpolation": false,
+  "crossfade": false,
+  "redistribution": "user supplied; no external redistribution authorization recorded",
+  "note": "2026-11-07 画布重建到 v2 规格（458x660, 脚底 620）"
+}

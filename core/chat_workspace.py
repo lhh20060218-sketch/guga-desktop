@@ -4,10 +4,12 @@ import uuid
 from contextlib import contextmanager
 from pathlib import Path
 
+from core import guga_paths
+
 
 class ChatWorkspace:
     def __init__(self, path=None):
-        self.path = Path(path or Path(__file__).resolve().parents[1] / 'runtime/chat/workspace.sqlite3')
+        self.path = Path(path or guga_paths.RUNTIME / 'chat/workspace.sqlite3')
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.connect() as db:
             db.executescript('''
@@ -26,6 +28,9 @@ class ChatWorkspace:
             columns={row[1] for row in db.execute('PRAGMA table_info(conversations)')}
             if 'agent_id' not in columns:
                 db.execute("ALTER TABLE conversations ADD COLUMN agent_id TEXT NOT NULL DEFAULT '001'")
+            message_columns={row[1] for row in db.execute('PRAGMA table_info(messages)')}
+            if 'meta' not in message_columns:
+                db.execute('ALTER TABLE messages ADD COLUMN meta TEXT')
 
     @contextmanager
     def connect(self):
@@ -93,18 +98,30 @@ class ChatWorkspace:
             if db.execute('UPDATE conversations SET archived=? WHERE id=?', (int(archived), ident)).rowcount != 1:
                 raise ValueError('会话不存在')
 
-    def append(self, ident, role, content):
+    def append(self, ident, role, content, meta=None):
         if role not in ('user', 'assistant', 'tool', 'system'):
             raise ValueError('无效消息类型')
+        payload=None
+        if meta is not None:
+            import json
+            payload=json.dumps(meta, ensure_ascii=False, default=str)
         with self.connect() as db:
-            db.execute('INSERT INTO messages(conversation_id,role,content) VALUES (?,?,?)', (ident, role, content))
+            cursor=db.execute('INSERT INTO messages(conversation_id,role,content,meta) VALUES (?,?,?,?)',
+                              (ident, role, content, payload))
             db.execute('UPDATE conversations SET updated=CURRENT_TIMESTAMP WHERE id=?', (ident,))
+            return cursor.lastrowid
 
     def messages(self, ident, limit=200):
         with self.connect() as db:
             return [dict(r) for r in reversed(list(db.execute(
-                'SELECT id,role,content,created FROM messages WHERE conversation_id=? ORDER BY id DESC LIMIT ?',
+                'SELECT id,role,content,created,meta FROM messages WHERE conversation_id=? ORDER BY id DESC LIMIT ?',
                 (ident, limit))))]
+
+    def message(self, message_id):
+        with self.connect() as db:
+            row=db.execute('SELECT id,role,content,created,meta FROM messages WHERE id=?',
+                           (int(message_id),)).fetchone()
+        return dict(row) if row else None
 
     def preference(self, key, value=None):
         with self.connect() as db:

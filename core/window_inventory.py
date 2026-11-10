@@ -1,5 +1,12 @@
 """Read-only window inventory shared by software discovery and computer tools."""
 import ntpath
+import time
+
+# Cross-app steps often ask for the same window list several times in a row.
+# A very short cache avoids repeated psutil/EnumWindows sweeps while staying
+# fresh enough for launch and focus verification.
+_CACHE={'time':0.0,'windows':[]}
+_CACHE_TTL=0.6
 
 ALIASES = {
     '微信': ('weixin', 'wechat'), 'wechat': ('weixin', 'wechat'),
@@ -33,6 +40,17 @@ def matching_windows(windows, query=''):
 
 
 def list_windows(query='', limit=100):
+    now=time.monotonic()
+    if _CACHE['windows'] and now-_CACHE['time']<_CACHE_TTL:
+        windows=_CACHE['windows']
+    else:
+        windows=_enumerate_windows()
+        _CACHE.update(time=now,windows=windows)
+    # Filter after enumeration so a matching app is not lost behind unrelated windows.
+    return matching_windows(windows, query)[:max(1, min(int(limit), 200))]
+
+
+def _enumerate_windows():
     import psutil
     import win32gui
     import win32process
@@ -42,8 +60,10 @@ def list_windows(query='', limit=100):
     def collect(hwnd, _):
         try:
             title = win32gui.GetWindowText(hwnd)
-            if not title or not win32gui.IsWindowVisible(hwnd):
+            if not win32gui.IsWindowVisible(hwnd):
                 return
+            # 注意：不跳过空标题——WorkBuddy/Chrome_WidgetWin_1 在某些状态下标题为空，
+            # 但进程名是 workbuddy.exe，后续 matching_windows 按进程名能正确匹配。
             pid = win32process.GetWindowThreadProcessId(hwnd)[1]
             if pid not in processes:
                 metadata = dict(pid=pid, process_name='', executable='')
@@ -59,5 +79,4 @@ def list_windows(query='', limit=100):
         except OSError:
             pass  # A window may close during enumeration.
     win32gui.EnumWindows(collect, None)
-    # Filter before limiting, so a matching app is not lost behind unrelated windows.
-    return matching_windows(windows, query)[:max(1, min(int(limit), 200))]
+    return windows

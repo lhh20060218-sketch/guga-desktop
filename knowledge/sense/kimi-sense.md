@@ -14,7 +14,7 @@
 - **档案ID**：kimi-sense（停用）
 
 - **软件**：Kimi（月之暗面 Windows 桌面客户端，Kimi Work）
-- **实测版本**：FileVersion 3.2.23.24（ProductName=Kimi，路径 `C:\Users\zhipengcheng\AppData\Local\Programs\Kimi\Kimi.exe`）
+- **实测版本**：FileVersion 3.2.23.24（ProductName=Kimi，路径 `%USERPROFILE%\AppData\Local\Programs\Kimi\Kimi.exe`）
 - **实测时间**：2026-11-05（Asia/Shanghai）
 - **实测环境**：Windows 11，屏幕 2560×1600，已登录
 - **截图目录**：`knowledge/sense/imgs/`（全部为**窗口级**真机截图，已裁到应用窗口）

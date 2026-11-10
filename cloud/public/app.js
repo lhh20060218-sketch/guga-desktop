@@ -314,6 +314,8 @@ setInterval(() => {
  * 派单时点名由哪台电脑真机执行；"WorkBuddy 出稿 → 豆包润色"这类跨软件跨设备接力就靠它。 */
 let pickedDevice = localStorage.getItem('guga_device') || '';    // 稳定设备 id（旧值可能是设备名，服务端两者都认）
 let pickedLabel = '';
+let pickedName = localStorage.getItem('guga_device_name') || ''; // 设备显示名（掉线后列表里没有它，错误文案仍要能叫出名字）
+let lastDevices = [];    // 最近一次 /api/agent/devices 快照：错误文案靠它把 id 还原成设备名
 async function refreshDevices() {
   try {
     const r = await fetch('/api/agent/devices', { headers: authHeaders() });
@@ -321,25 +323,123 @@ async function refreshDevices() {
     const d = await r.json();
     const sel = $('devicePick');
     const devs = d.devices || [];
-    if (!devs.length) { sel.style.display = 'none'; sel.innerHTML = ''; return; }
-    sel.style.display = '';
+    lastDevices = devs;
     const opts = ['<option value="">📡 自动 · 任一在线电脑</option>'].concat(devs.map(v => {
       const tools = (v.ai || []).join('、') || '未识别到 AI 软件';
       return `<option value="${v.id || v.device}">🖥 ${v.device}（${tools}）</option>`;
     }));
+    /* 点名过的设备掉线后不悄悄改派：保留这一项并标注「已离线」，
+       让服务端如实回 DEVICE_OFFLINE（用户才知道"这单没派出去、该换哪台"）。 */
+    const gone = !!pickedDevice && !devs.some(v => (v.id || v.device) === pickedDevice);
+    if (gone) opts.push(`<option value="${pickedDevice}">🖥 ${pickedName || pickedDevice}（已离线）</option>`);
+    if (!devs.length && !gone) { sel.style.display = 'none'; sel.innerHTML = ''; return; }
+    sel.style.display = '';
     sel.innerHTML = opts.join('');
-    if (pickedDevice && devs.some(v => (v.id || v.device) === pickedDevice)) {
+    if (pickedDevice) {
       sel.value = pickedDevice;
-      pickedLabel = (sel.selectedOptions[0] || {}).textContent || pickedDevice;
-    }
-    else { pickedDevice = ''; pickedLabel = ''; localStorage.removeItem('guga_device'); sel.value = ''; }
+      const cur = devs.find(v => (v.id || v.device) === pickedDevice);
+      if (cur) { pickedName = cur.device; pickedLabel = (sel.selectedOptions[0] || {}).textContent || pickedDevice; }
+      else pickedLabel = pickedName || pickedDevice;
+      localStorage.setItem('guga_device_name', pickedName || '');
+    } else { pickedLabel = ''; sel.value = ''; }
   } catch { /* 状态闪断不打扰少爷 */ }
+}
+/* ---------- 派单需要哪些工具（跨设备校验） ----------
+ * 与桌面端 core/tool_router.required_tools 同口径：先认任务里点名的软件，
+ * 没点名则按能力推载体（演示/文档偏 WPS、视频偏剪映、图片偏豆包），
+ * 目标设备自己清单里有的载体优先，避免把"做PPT"误判成必须 WPS。
+ * 只在点名了设备时随单上报；服务端仅在有 device + requiredTools 时校验清单。 */
+const TOOL_NAME_HINTS = [
+  [/workbuddy|work\s*buddy/i, 'WorkBuddy'],
+  [/豆包|doubao/i, '豆包'],
+  [/kimi/i, 'Kimi'],
+  [/wps/i, 'WPS'],
+  [/剪映|capcut/i, '剪映'],
+  [/trae/i, 'Trae'],
+  [/joycode/i, 'JoyCode'],
+  [/即梦|jimeng/i, '即梦'],
+];
+const TOOL_CAP_HINTS = [
+  [/视频|剪辑|字幕|短视频|成片|配音/, ['剪映']],
+  [/ppt|演示文稿|幻灯片|汇报材料|路演/i, ['WPS', 'WorkBuddy']],
+  [/文档|文案|报告|周报|总结|纪要|方案/, ['WPS', 'WorkBuddy']],
+  [/图片|海报|插画|配图|封面/, ['豆包']],
+];
+function requiredToolsFor(goal, dev) {
+  const out = [];
+  const text = String(goal || '');
+  for (const [re, name] of TOOL_NAME_HINTS) if (re.test(text) && !out.includes(name)) out.push(name);
+  if (out.length) return out.slice(0, 2);
+  const ai = ((dev && dev.ai) || []).map(x => String(x));
+  for (const [re, carriers] of TOOL_CAP_HINTS) {
+    if (!re.test(text)) continue;
+    const own = carriers.find(n => ai.some(a => a.toLowerCase().includes(n.toLowerCase())));
+    const pick = own || carriers[0];
+    if (!out.includes(pick)) out.push(pick);
+    break;
+  }
+  return out.slice(0, 2);
+}
+function deviceNameOf(id) {
+  const d = lastDevices.find(v => v.id === id || v.device === id);
+  return (d && d.device) || (id === pickedDevice && pickedName) || id || '所选设备';
+}
+async function inventorySnapshot() {
+  try {
+    const r = await fetch('/api/devices/inventory', { headers: authHeaders() });
+    if (!r.ok) return [];
+    return ((await r.json()).devices) || [];
+  } catch { return []; }
+}
+function devicesWith(tools, inv) {
+  const need = (tools || []).map(t => String(t).toLowerCase());
+  return inv.filter(v => v.online && v.hasInventory && need.every(n =>
+    (v.tools || []).some(it => {
+      const name = String(it.name || '').toLowerCase();
+      return name.includes(n) || n.includes(name);
+    })));
+}
+function toolListText(invEntry) {
+  return ((invEntry && invEntry.tools) || []).map(t => t.name).join('、') || '无';
+}
+/* 把服务端三条跨设备错误码翻译成"缺什么、哪台有、下一步怎么办" */
+async function dispatchFailureText(data, needTools) {
+  const code = data.code || '';
+  const target = deviceNameOf(data.deviceId);
+  const inv = await inventorySnapshot();
+  const holders = devicesWith(needTools, inv);
+  const holderText = holders.length
+    ? holders.map(v => `${v.device}（${toolListText(v)}）`).join('、')
+    : '暂无在线设备同时具备所需工具';
+  const onlineText = inv.filter(v => v.online).map(v => v.device).join('、') || '暂无在线设备';
+  if (code === 'DEVICE_OFFLINE') {
+    return `⚠ ［DEVICE_OFFLINE］所选设备「${target}」的本体已离线，这单没有悄悄改派。\n当前在线：${onlineText}。`
+      + (needTools.length ? `\n本单需要：${needTools.join('、')} → 可换到 ${holderText}，或去「${target}」重新启动咕嘎本体。`
+        : `\n请换一台在线电脑，或去「${target}」重新启动咕嘎本体。`);
+  }
+  if (code === 'NO_INVENTORY') {
+    return `⚠ ［NO_INVENTORY］所选设备「${target}」还没上报软件清单，无法确认它装了什么。`
+      + (needTools.length ? `\n本单需要：${needTools.join('、')} → 已具备的在：${holderText}。` : '')
+      + `\n让「${target}」的本体启动一次即可自动上报清单。`;
+  }
+  if (code === 'TOOL_MISSING') {
+    const miss = data.missing || needTools;
+    const avail = data.available || [];
+    return `⚠ ［TOOL_MISSING］所选设备「${target}」上缺：${miss.join('、')}。`
+      + (avail.length ? `\n它当前清单里只有：${avail.join('、')}。` : '')
+      + `\n具备${miss.join('、')}的在：${holderText} → 换到那台派单，或先在「${target}」装好再派。`;
+  }
+  return '⚠ ' + (data.error || '派单失败');
 }
 $('devicePick').addEventListener('change', () => {
   pickedDevice = $('devicePick').value;
   pickedLabel = ($('devicePick').selectedOptions[0] || {}).textContent || pickedDevice;
-  if (pickedDevice) localStorage.setItem('guga_device', pickedDevice);
-  else localStorage.removeItem('guga_device');
+  const cur = lastDevices.find(v => (v.id || v.device) === pickedDevice);
+  if (pickedDevice) {
+    pickedName = (cur && cur.device) || pickedName || pickedLabel;   // 选的是「已离线」占位项时沿用上次记住的设备名
+    localStorage.setItem('guga_device', pickedDevice);
+    localStorage.setItem('guga_device_name', pickedName || '');
+  } else { localStorage.removeItem('guga_device'); localStorage.removeItem('guga_device_name'); }
   toast(pickedDevice ? `📡 已点名 ${pickedLabel} 承接真机任务` : '📡 已切回自动：任一在线电脑接单');
 });
 
@@ -543,18 +643,27 @@ async function sendChat(text, isGoal) {
   try {
     if (isGoal) {
       setPet('command');
+      // 点名了设备时，按任务推导它必须具备的工具，服务端据此校验清单（NO_INVENTORY / TOOL_MISSING）
+      const pickedDev = lastDevices.find(v => (v.id || v.device) === pickedDevice) || null;
+      const needTools = pickedDevice ? requiredToolsFor(text, pickedDev) : [];
       const resp = await fetch('/api/tasks', {
         method: 'POST', headers: authHeaders(),
-        body: JSON.stringify({ goal: text, space: curSpace, executor: localMode ? 'local' : 'cloud', device: pickedDevice }),
+        body: JSON.stringify({ goal: text, space: curSpace, executor: localMode ? 'local' : 'cloud', device: pickedDevice, requiredTools: needTools }),
       });
       const data = await resp.json();
-      if (!resp.ok) throw new Error(data.error || '派单失败');
+      if (!resp.ok) {
+        const e = new Error(data.error || '派单失败');
+        e.dispatch = data;          // 带上 code/missing/available/deviceId，错误文案要能说清"缺什么、哪台有"
+        e.needTools = needTools;
+        throw e;
+      }
       setLedger(false, false);   // 派单成功自动展开台账，少爷能立刻看到监工现场
       const n = data.task.subtasks.length;
       let msg = data.mode === 'local'
         ? `少爷，本单已派给「${data.task.execDevice || '您配对的电脑'}」真机执行——它马上远程指挥本机 AI 软件真实干活${pickedDevice && pickedLabel && pickedLabel !== deviceLabel() ? '（远程指挥中，盯着那台电脑屏幕就能看到过程）' : '，盯着本机屏幕就能看到过程'}，产物回传后我照旧验收。`
         : `少爷，目标已拆解为 ${n} 个子任务——工人们已领单，现在开始真实执行，产物完成后可在台账里点开查看。我全程盯着，有超时或不合格当场处理。`;
       if (data.mode === 'demo') msg = `少爷，当前服务器未接入大模型，暂以内置剧本演示监工流程（无真实产物）。`;
+      if (needTools.length) msg += `\n（已按任务需要校验工具：${needTools.join('、')}）`;
       showBubble(msg);
     } else {
       const resp = await fetch('/api/chat', {
@@ -595,7 +704,7 @@ async function sendChat(text, isGoal) {
       if (full && !dispatched) ttsSpeak(full);   // 聊天回复读完整版（派单话术不读，避免与监工播报打架）
     }
   } catch (err) {
-    showBubble('⚠ ' + err.message);
+    showBubble(err.dispatch ? await dispatchFailureText(err.dispatch, err.needTools || []) : '⚠ ' + err.message);
   } finally {
     chatBusy = false; $('sendBtn').disabled = false;
   }

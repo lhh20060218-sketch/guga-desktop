@@ -5,7 +5,7 @@
 - **动作目标**：从打开应用到拿到一段完整 AI 回答，端到端跑通。
 ## 前置条件
 
-1. 客户端已装：`C:\Users\zhipengcheng\AppData\Local\ZP\chatglm\智谱清言.exe`（v2.0.7）；网页版 https://chatglm.cn。
+1. 客户端已装：`%USERPROFILE%\AppData\Local\ZP\chatglm\智谱清言.exe`（v2.0.7）；网页版 https://chatglm.cn。
 2. 已登录：左下角头像区显示昵称，不是"登录 / 登录送积分好礼"；窗口≥1280×800；网络直连 chatglm.cn；已备好问题≤500 字。
 
 ## 步骤序列

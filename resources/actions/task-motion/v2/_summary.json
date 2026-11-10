@@ -1,0 +1,88 @@
+{
+  "butler_error": {
+    "source": "butler_error.mp4",
+    "action": "error",
+    "playback": "once",
+    "source_size": [
+      720,
+      1280
+    ],
+    "target_size": [
+      458,
+      660
+    ],
+    "fps": 24,
+    "key_median": [
+      138.0,
+      166.0,
+      111.0
+    ],
+    "scale": 0.63505,
+    "span_raw": 833.0,
+    "foot_raw": [
+      1138.0,
+      361.2
+    ],
+    "baseline": 620,
+    "frames": 98,
+    "key_drift": [
+      0.4,
+      0.56,
+      0.58
+    ],
+    "alpha_cov": 0.3669,
+    "fringe_before": 0.00472,
+    "fringe_after": 0.0,
+    "loop_tail": {
+      "alpha": 0.0054,
+      "rgb": 4.84
+    },
+    "glow_protected": 0,
+    "loop_seam_ok": null,
+    "tail_trimmed": 0,
+    "edge_green_after": 0.0
+  },
+  "butler_pet": {
+    "source": "butler_pet.mp4",
+    "action": "pet",
+    "playback": "once",
+    "source_size": [
+      1080,
+      1920
+    ],
+    "target_size": [
+      458,
+      660
+    ],
+    "fps": 24,
+    "key_median": [
+      166.0,
+      191.0,
+      136.0
+    ],
+    "scale": 0.33726,
+    "span_raw": 1568.5,
+    "foot_raw": [
+      1787.0,
+      520.8
+    ],
+    "baseline": 620,
+    "frames": 98,
+    "key_drift": [
+      0.55,
+      0.32,
+      0.36
+    ],
+    "alpha_cov": 0.3641,
+    "fringe_before": 0.00054,
+    "fringe_after": 0.0,
+    "loop_tail": {
+      "alpha": 0.0318,
+      "rgb": 5.22
+    },
+    "glow_protected": 0,
+    "loop_seam_ok": null,
+    "tail_trimmed": 0,
+    "edge_green_after": 0.0
+  }
+}

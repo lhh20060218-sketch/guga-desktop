@@ -53,10 +53,14 @@ class DesktopPetPhysics(QObject):
         self.timer.timeout.connect(self._tick)
         self.mode = None
         self.vx = self.vy = 0.
+        # move() 去重：比对"上次请求值"（dsh-pet 教训：回读窗口位置永远不相等）
+        self._last_pos = None
+        self._clock = None
 
     def stop(self):
         self.timer.stop()
         self.mode = None
+        self._clock = None
 
     def press(self, point):
         self.stop()
@@ -77,7 +81,14 @@ class DesktopPetPhysics(QObject):
             self.settled()
         return False
 
-    def walk(self, dx, seconds=10., lead=2., tail=2.):
+    def _move_to(self, x, y):
+        """按"上次请求值"去重，位置没变就不碰窗口系统调用。"""
+        if self._last_pos == (x, y):
+            return
+        self._last_pos = (x, y)
+        self.window.move(x, y)
+
+    def walk(self, dx, seconds=10., lead=2., tail=2., clock=None):
         if self.mode or not self.window.isVisible():
             return False
         self.start_x, self.start_y = self.window.x(), self.window.y()
@@ -85,8 +96,11 @@ class DesktopPetPhysics(QObject):
         target = max(area.left(), min(self.start_x+dx, area.right()-self.window.width()+1))
         self.distance = target-self.start_x
         self.seconds, self.lead, self.tail = seconds, lead, tail
+        # 媒体时钟（可选）：位移跟"真正交付的动画帧"走，解码停=脚步停，杜绝滑步。
+        self._clock = clock if callable(clock) else None
         self.mode = 'walk'
         self.started = self.last = time.monotonic()
+        self._last_pos = (self.start_x, self.start_y)
         self.timer.start()
         return True
 
@@ -95,9 +109,11 @@ class DesktopPetPhysics(QObject):
         dt = min(.05, max(0., now-self.last))
         self.last = now
         if self.mode == 'walk':
-            u = max(0., min(1., (now-self.started-self.lead)/max(.1, self.seconds-self.lead-self.tail)))
-            self.window.move(round(self.start_x+self.distance*u), self.start_y)
-            if now-self.started >= self.seconds:
+            # 有媒体时钟就用它（跟动画交付的帧走）；没有再退回墙钟
+            t = self._clock() if self._clock else now-self.started
+            u = max(0., min(1., (t-self.lead)/max(.1, self.seconds-self.lead-self.tail)))
+            self._move_to(round(self.start_x+self.distance*u), self.start_y)
+            if t >= self.seconds:
                 self._finish()
             return
         if self.mode != 'throw':
@@ -127,7 +143,7 @@ class DesktopPetPhysics(QObject):
                 self.vx *= math.exp(-2.5*h)
                 if abs(self.vx) < 15:
                     self.vx = 0.
-        self.window.move(round(self.x), round(self.y))
+        self._move_to(round(self.x), round(self.y))
         if impact > 300 and hasattr(self.animator, 'tap'):
             self.animator.tap(.88)
         if (self.vx == 0 and self.vy == 0) or now-self.started > 8:

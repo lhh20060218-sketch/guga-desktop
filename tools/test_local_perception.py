@@ -79,14 +79,69 @@ class LocalPerceptionTests(unittest.TestCase):
         self.assertIn('今天想看什么',value['context'])
 
     def test_routine_actions_disable_deep_thinking_but_engineering_keeps_it(self):
+        import json
         from core.self_agent import SelfAgent
         agent=SelfAgent(Mock(),config=dict(base_url='https://fixture.invalid',api_key='offline',model='fixture'))
-        response=Mock(status_code=200);response.json.return_value=dict(choices=[dict(message=dict(content='received'))])
+        response=Mock(status_code=200,headers={},text=json.dumps(dict(choices=[dict(message=dict(content='received'))])))
         for routine in (True,False):
             agent._routine_request=routine
-            with patch('core.self_agent.requests.post',return_value=response) as request:
+            # 模型请求统一走 core.model_endpoint.post（保留 POST 的重定向/代理兜底），
+            # 这里必须拦真实入口，否则会打到 fixture.invalid。
+            with patch('core.model_endpoint.post',return_value=response) as request:
                 agent._request([], 'fixture')
             self.assertEqual(request.call_args.kwargs['json']['thinking']['type'],'disabled' if routine else 'enabled')
+
+    def test_short_composite_task_keeps_full_budget_and_planning_instruction(self):
+        import json
+        from core.self_agent import SelfAgent
+        from core.agent_task import TaskJournal
+        agent=SelfAgent(Mock(),config=dict(api_key='offline',task_budget_seconds=40))
+        results=[];agent.completed.connect(results.append);seen=[]
+        call=dict(role='assistant',tool_calls=[dict(id='w',type='function',
+            function=dict(name='computer',arguments=json.dumps(dict(action='windows'))))])
+        def request(*args,**kw):
+            seen.append([m.get('content','') for m in args[0] if m.get('role')=='system'])
+            return call if len(seen)==1 else dict(role='assistant',content='完成|none|已按步骤执行')
+        with tempfile.TemporaryDirectory() as folder,patch.object(agent,'_request',side_effect=request), \
+             patch.object(agent.computer,'execute',return_value=dict(windows=[])):
+            agent.journal=TaskJournal(folder)
+            agent._run('fixture',[],'打开浏览器搜索资料，然后发到微信给小军',threading.Event(),
+                handoff=dict(_route=dict(category='multi_step')))
+        self.assertFalse(agent._routine_request)
+        self.assertTrue(any('多步骤复合任务' in text for text in seen[0]))
+
+
+
+    def test_composite_chain_runs_past_single_step_cap_and_adapts_after_failure(self):
+        import json
+        from core.self_agent import SelfAgent
+        from core.agent_task import TaskJournal
+        agent=SelfAgent(Mock(),config=dict(api_key='offline'))
+        results=[];agent.completed.connect(results.append);rounds=[]
+        def call(name,arguments):
+            return dict(role='assistant',tool_calls=[dict(id=name+str(len(rounds)),type='function',
+                function=dict(name=name,arguments=json.dumps(arguments)))])
+        def request(*args,**kw):
+            rounds.append(1);previous=[m for m in args[0] if m.get('role')=='tool']
+            if not previous:return call('task_plan',dict(steps=['查看窗口','聚焦目标','复查结果']))
+            last=json.loads(previous[-1]['content'])
+            if len(previous)==1:return call('computer',dict(action='focus',hwnd=1))
+            if len(previous)==2:
+                self.assertFalse(last.get('ok'))
+                return call('computer',dict(action='windows',query='记事本'))
+            if len(previous)==3:return call('computer',dict(action='observe',hwnd=2))
+            return dict(role='assistant',content='完成|none|原定聚焦失败，已改为核对窗口后结束')
+        def execute(arguments,cancel):
+            if arguments.get('action')=='focus':raise RuntimeError('窗口已关闭')
+            if arguments.get('action')=='observe':return dict(observation_id='obs-1')
+            return dict(windows=[dict(hwnd=2,title='记事本')])
+        with tempfile.TemporaryDirectory() as folder,patch.object(agent,'_request',side_effect=request), \
+             patch.object(agent.computer,'execute',side_effect=execute):
+            agent.journal=TaskJournal(folder)
+            agent._run('fixture',[],'打开记事本，然后查看窗口，最后确认结果',threading.Event(),
+                handoff=dict(_route=dict(category='multi_step')))
+        self.assertEqual(len(rounds),5)
+        self.assertTrue(results[0]['ok'])
 
     def test_short_desktop_task_cannot_repeat_twenty_seven_model_tool_rounds(self):
         import json
@@ -102,8 +157,10 @@ class LocalPerceptionTests(unittest.TestCase):
              patch.object(agent.computer,'execute',return_value=dict(windows=[])) as execute:
             agent.journal=TaskJournal(folder)
             agent._run('fixture',[],'看看当前网页的控件',threading.Event(),handoff=dict(_route=dict(category='local_task')))
-        self.assertEqual(index[0],4);self.assertEqual(execute.call_count,4)
-        self.assertFalse(results[0]['ok']);self.assertIn('4轮',results[0]['error'])
+        # 例行请求步骤预算从 4 提到 12（实测 qwen3-vl-plus 等模型首轮可能只回推理/文字，
+        # 需要再追一轮工具调用+回执），仍远低于复合任务的 80 轮。
+        self.assertEqual(index[0],12);self.assertEqual(execute.call_count,12)
+        self.assertFalse(results[0]['ok']);self.assertIn('12轮',results[0]['error'])
 
     def test_browser_tool_does_not_hide_the_recordable_companion(self):
         import json
@@ -117,6 +174,38 @@ class LocalPerceptionTests(unittest.TestCase):
              patch.object(agent,'_desktop_capability') as hide:
             agent.journal=TaskJournal(folder);agent._run('fixture',[],'检查浏览器会话状态',threading.Event())
         hide.assert_not_called();execute.assert_called_once()
+
+    def test_identical_tool_call_loop_pauses_instead_of_spinning(self):
+        import json
+        from core.self_agent import SelfAgent
+        from core.agent_task import TaskJournal
+        agent=SelfAgent(Mock(),config=dict(api_key='offline'));results=[];agent.completed.connect(results.append)
+        call=dict(role='assistant',tool_calls=[dict(id='obs',type='function',
+            function=dict(name='computer',arguments=json.dumps(dict(action='observe',hwnd=7))))])
+        with tempfile.TemporaryDirectory() as folder,patch.object(agent,'_request',return_value=call), \
+             patch.object(agent.computer,'execute',return_value=dict(observation_id='obs-1')) as execute:
+            agent.journal=TaskJournal(folder)
+            agent._run('fixture',[],'打开记事本，然后查看窗口，最后确认结果',threading.Event(),
+                handoff=dict(_route=dict(category='multi_step')))
+        self.assertFalse(results[0]['ok'])
+        self.assertIn('连续重复四次',results[0]['error'])
+        self.assertEqual(execute.call_count,3)
+
+    def test_same_failed_path_is_not_replayed_forever(self):
+        import json
+        from core.self_agent import SelfAgent
+        from core.agent_task import TaskJournal
+        agent=SelfAgent(Mock(),config=dict(api_key='offline'));results=[];agent.completed.connect(results.append)
+        call=dict(role='assistant',tool_calls=[dict(id='focus',type='function',
+            function=dict(name='computer',arguments=json.dumps(dict(action='focus',hwnd=1))))])
+        with tempfile.TemporaryDirectory() as folder,patch.object(agent,'_request',return_value=call), \
+             patch.object(agent.computer,'execute',side_effect=RuntimeError('窗口已关闭')) as execute:
+            agent.journal=TaskJournal(folder)
+            agent._run('fixture',[],'打开记事本，然后查看窗口，最后确认结果',threading.Event(),
+                handoff=dict(_route=dict(category='multi_step')))
+        self.assertFalse(results[0]['ok'])
+        self.assertEqual(agent.journal.data['status'],'paused')
+        self.assertEqual(execute.call_count,3)
 
 
 if __name__=='__main__':unittest.main()

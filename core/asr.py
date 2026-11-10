@@ -2,7 +2,8 @@
 """咕嘎企鹅语音识别模块 — 麦克风录音 + Vosk 离线中文识别
 
 - 依赖：sounddevice（录音）、vosk（识别）
-- 模型：vosk-model-small-cn（首次自动下载到 .zcode/tools/vosk-model-cn）
+- 模型：vosk-model-small-cn **不随安装包**，首次使用需联网下载约 40MB
+  （GUGA-Desktop.exe --download-vosk-model，落点 %GUGA_HOME%/models/vosk-model-cn）
 - 自动增益：录音时按峰值归一化（笔记本麦克风通常声音偏小）
 - 用法：
     recorder = ASRRecorder()
@@ -13,14 +14,43 @@
 import os
 import queue
 import threading
+import zipfile
+from pathlib import Path
 
-# 模型下载地址（若缺失）
-VOSK_MODEL_URL = 'https://alphacephei.com/vosk/models/vosk-model-small-cn-0.3.zip'
+# 模型下载源（按顺序尝试）：国内镜像优先，官方源兜底。
+# 镜像 zip 实测 SHA256 已固定（2026-11-09 本机实测：43.9MB / 5.6MB/s / vosk 真加载通过）；
+# 下载后校验不通过会自动换下一个源，绝不装来路不明的内容。
+MODEL_SOURCES = (
+    dict(url='https://hf-mirror.com/guloooovoooo/vosk-model-small-cn/resolve/main/vosk-model-small-cn.zip',
+         label='HuggingFace 国内镜像（hf-mirror.com）',
+         sha256='2b34e3c3eb2c61105b1affc4863407965dbf968c63ceb5cd46685f9bd627434a'),
+    dict(url='https://alphacephei.com/vosk/models/vosk-model-small-cn-0.3.zip',
+         label='Vosk 官方源（境外，可能较慢）', sha256=''),
+)
+VOSK_MODEL_URL = MODEL_SOURCES[0]['url']
+MODEL_SUBDIR = 'vosk-model-cn'
 
 # 注意：vosk 的 C++ 引擎不支持非 ASCII 路径！
-# 原始位置在用户目录下（可能含中文），实际加载必须用 ASCII 路径：
+# 原始位置在用户数据目录（可能含中文），实际加载必须用 ASCII 路径：
 # 优先 %TEMP%\vosk-model-cn（复制品），否则用 8.3 短名转换。
-_MODEL_SRC = os.path.join(os.environ.get('USERPROFILE', ''), '.zcode', 'tools', 'vosk-model-cn')
+
+
+def _model_source_dir():
+    """模型源目录：GUGA_HOME/models/vosk-model-cn；打包版再看包内 models 兜底。"""
+    candidates = []
+    try:
+        from core import guga_paths
+        candidates.append(os.path.join(str(guga_paths.BASE), 'models', MODEL_SUBDIR))
+    except Exception:
+        pass
+    if getattr(__import__('sys'), 'frozen', False):
+        base = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        candidates.append(os.path.join(base, 'models', MODEL_SUBDIR))
+    return candidates[0] if candidates else os.path.join(
+        os.environ.get('USERPROFILE', ''), 'GUGA', 'models', MODEL_SUBDIR)
+
+
+_MODEL_SRC = _model_source_dir()
 
 # 自动增益目标峰值（int16），太小听不清，太大削波
 _GAIN_PEAK = 7000
@@ -92,6 +122,117 @@ def _ensure_model_dir() -> str:
 
 
 MODEL_DIR = _ensure_model_dir()
+
+
+def model_ready(path=None) -> bool:
+    """目录里真有 am/conf 才算模型存在（空目录不算）。"""
+    folder = Path(path or _MODEL_SRC)
+    return folder.is_dir() and ((folder / 'am').is_dir() or (folder / 'conf').is_dir())
+
+
+def _download_one(url, archive, timeout_seconds, progress):
+    """带超时分块下载单个源，返回 (bytes, sha256)。"""
+    import hashlib
+    import urllib.request
+    digest = hashlib.sha256()
+    request = urllib.request.Request(url, headers={'User-Agent': 'guga-desktop'})
+    with urllib.request.urlopen(request, timeout=timeout_seconds) as response:
+        total = int(response.headers.get('Content-Length') or 0)
+        done = 0
+        last_report = 0
+        with open(str(archive), 'wb') as handle:
+            while True:
+                chunk = response.read(256 * 1024)
+                if not chunk:
+                    break
+                handle.write(chunk)
+                digest.update(chunk)
+                done += len(chunk)
+                if progress and total and done - last_report >= 4 * 1024 * 1024:
+                    last_report = done
+                    try:
+                        progress('下载中：%d/%d 字节' % (done, total))
+                    except Exception:
+                        pass
+    if total and done < total:
+        raise RuntimeError('下载不完整：%d/%d 字节' % (done, total))
+    return done, digest.hexdigest()
+
+
+def download_model(url='', dest='', progress=None, timeout_seconds=30) -> dict:
+    """下载并解压 vosk 中文模型到 %GUGA_HOME%/models/vosk-model-cn。
+
+    不依赖模型 Key；需要联网约 40MB。按 MODEL_SOURCES 顺序尝试
+    （国内镜像优先、官方源兜底），每个源带读超时；固定了 SHA256 的源
+    校验不通过自动换下一个，绝不装来路不明的内容。返回结构化结果，不抛给界面。
+    """
+    import shutil
+    import tempfile
+    target = Path(dest or _MODEL_SRC)
+    if model_ready(target):
+        return dict(ok=True, path=str(target), downloaded=False,
+                    message='模型已存在，未重复下载')
+    sources = ([dict(url=url, label='指定地址', sha256='')] if url
+               else list(MODEL_SOURCES))
+    errors = []
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+    except Exception as exc:
+        return dict(ok=False, path=str(target), downloaded=False,
+                    error='%s: %s' % (type(exc).__name__, str(exc)[:200]),
+                    next_action='目标目录不可写，检查 %s 权限' % target)
+    for source in sources:
+        one = dict(source)
+        try:
+            with tempfile.TemporaryDirectory(prefix='guga-vosk-') as folder:
+                archive = Path(folder) / 'vosk-model.zip'
+                if progress:
+                    try:
+                        progress('开始下载（%s）：%s' % (one['label'], one['url']))
+                    except Exception:
+                        pass
+                size, sha = _download_one(one['url'], archive, timeout_seconds, progress)
+                if one.get('sha256') and sha != one['sha256']:
+                    raise RuntimeError('SHA256 校验不通过：镜像内容已变化（期望 %s…，实际 %s…），换下一个源'
+                                       % (one['sha256'][:12], sha[:12]))
+                if progress:
+                    try:
+                        progress('下载完成：%d 字节（sha256=%s…），开始解压' % (size, sha[:16]))
+                    except Exception:
+                        pass
+                extract = Path(folder) / 'unpack'
+                extract.mkdir()
+                with zipfile.ZipFile(str(archive)) as handle:
+                    handle.extractall(str(extract))
+                model_dir = None
+                for path in extract.rglob('*'):
+                    if path.is_dir() and ((path / 'am').is_dir() or (path / 'conf').is_dir()):
+                        model_dir = path
+                        break
+                if model_dir is None:
+                    raise RuntimeError('压缩包里没有找到 am/ 或 conf/ 模型目录')
+                if target.exists():
+                    shutil.rmtree(str(target))
+                shutil.copytree(str(model_dir), str(target))
+            if not model_ready(target):
+                raise RuntimeError('解压后模型目录仍不完整：%s' % target)
+            global MODEL_DIR
+            MODEL_DIR = _ensure_model_dir()
+            return dict(ok=True, path=str(target), downloaded=True,
+                        bytes=size, sha256=sha, source=one['label'], source_url=one['url'],
+                        message='已下载并解压到 %s（来源：%s）' % (target, one['label']))
+        except Exception as exc:
+            errors.append('%s：%s: %s' % (one['label'], type(exc).__name__, str(exc)[:160]))
+            if progress:
+                try:
+                    progress('该源失败，尝试下一个 —— %s' % errors[-1])
+                except Exception:
+                    pass
+    return dict(ok=False, path=str(target), downloaded=False,
+                errors=errors,
+                error=errors[-1] if errors else '无可用源',
+                next_action='检查网络后重试；或手动下载 %s 解压到 %s'
+                            % (MODEL_SOURCES[-1]['url'], target))
 
 
 class ASRRecorder:

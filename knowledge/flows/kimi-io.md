@@ -12,7 +12,7 @@
 > 保留本文件仅作历史留存与"为什么排除"的说明。
 
 - **档案ID**：kimi-io（停用）
-- **软件**：Kimi（月之暗面 Windows 桌面客户端，Kimi Work / Electron，`C:\Users\zhipengcheng\AppData\Local\Programs\Kimi\Kimi.exe`）
+- **软件**：Kimi（月之暗面 Windows 桌面客户端，Kimi Work / Electron，`%USERPROFILE%\AppData\Local\Programs\Kimi\Kimi.exe`）
 - **实测版本**：FileVersion 3.2.23.24（ProductName=Kimi）
 - **实测时间**：2026-11-05（Asia/Shanghai）
 - **实测环境**：Windows 11，屏幕 2560×1600，已登录

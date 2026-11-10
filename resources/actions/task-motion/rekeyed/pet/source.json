@@ -1,0 +1,17 @@
+{
+  "action": "pet",
+  "frames": 98,
+  "canvas": [
+    458,
+    660
+  ],
+  "baseline": 620,
+  "body_height": 537.0,
+  "scale": 0.9624,
+  "offset": [
+    42,
+    18
+  ],
+  "matte": "border-key + GrabCut + unpremultiply",
+  "from_legacy": "resources\\actions\\task-motion\\pet\\frames"
+}

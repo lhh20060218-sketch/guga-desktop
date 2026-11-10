@@ -12,6 +12,7 @@ import time
 import uuid
 
 ROOT=Path(__file__).resolve().parents[1]
+from core import guga_paths
 ACTIONS=('session_start','session_status','session_stop','tabs','new_tab','snapshot','navigate',
          'fill_form','click','press','scroll','wait','upload','download')
 
@@ -160,7 +161,7 @@ class BrowserWorker:
                 if self.context:return dict(ok=True,already_active=True,tabs=self.page_list())
                 from playwright.sync_api import sync_playwright
                 self.playwright=sync_playwright().start()
-                profile=Path(os.environ.get('GUGA_BROWSER_PROFILE_DIR',str(ROOT/'runtime/browser-profile')))
+                profile=Path(os.environ.get('GUGA_BROWSER_PROFILE_DIR',str(guga_paths.RUNTIME/'browser-profile')))
                 profile.mkdir(parents=True,exist_ok=True)
                 self.context=self.playwright.chromium.launch_persistent_context(str(profile),headless=bool(args.get('headless',False)),
                     accept_downloads=True,viewport=dict(width=1280,height=900),timeout=15000)
@@ -222,7 +223,7 @@ class BrowserWorker:
             elif action=='download':
                 self.sent=True
                 with page.expect_download(timeout=10000) as download:element.click()
-                item=download.value;directory=ROOT/'runtime/browser-downloads';directory.mkdir(parents=True,exist_ok=True)
+                item=download.value;directory=guga_paths.RUNTIME/'browser-downloads';directory.mkdir(parents=True,exist_ok=True)
                 path=directory/(uuid.uuid4().hex[:8]+'-'+Path(item.suggested_filename).name)
                 item.save_as(str(path))
                 result=dict(self.snapshot(page),action_sent=True,verified=True,download_path=str(path),bytes=path.stat().st_size)

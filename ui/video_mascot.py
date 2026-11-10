@@ -66,6 +66,11 @@ class VideoMascotAnimator(MascotAnimator):
         self.pack = json.loads((PACK/'manifest.json').read_text(encoding='utf-8'))
         self.pools = self.pack['animations']
         self._video_frame = None
+        # 切片段交叉淡入（dsh-pet 双缓冲同款：旧帧盖在新帧上淡出 180ms）
+        self._prev_frame = None
+        self._fade_at = -1.
+        # 媒体时钟：只累计"真正交付的帧"的时间，walk 位移跟它走（解码停=脚步停，不滑步）
+        self._media_t = 0.
         self._cancel = threading.Event()
         self._workers = []
         self._queue = queue.Queue(6)
@@ -109,10 +114,14 @@ class VideoMascotAnimator(MascotAnimator):
         if mode is not None:
             self._mode = mode
         self.current_clip, self.path = name, str(path)
+        if self._video_frame is not None:
+            self._prev_frame = self._video_frame
+            self._fade_at = time.monotonic()
         self._cancel.set()
         self._cancel = threading.Event()
         self._queue = queue.Queue(6)
         self._generation += 1
+        self._media_t = 0.
         self._due = 0.
         self._workers = [w for w in self._workers if w.is_alive()]
         worker = threading.Thread(target=decode_clip, args=(path,self.width,self._cancel,self._queue),
@@ -126,6 +135,10 @@ class VideoMascotAnimator(MascotAnimator):
             return False
         self._held_expression = None
         return self._play(name, 'once')
+
+    def clip_time(self):
+        """媒体时钟（秒）：只随真正交付的帧前进；解码停摆时它停，位移跟着停。"""
+        return self._media_t
 
     def tap(self, amount=.86):
         self._tap_time, self._tap_amount = time.monotonic(), amount
@@ -212,8 +225,16 @@ class VideoMascotAnimator(MascotAnimator):
                 move = self._random.choice(self.pools['moves']['actions'])
                 self._play(move['name'], 'once')
                 params = dict(self.pools['moves']['default'], **move.get('params', {}))
-                self.on_move(self._random.choice((-1,1))*self._random.uniform(params['minDist'],params['maxDist']),
-                             10.,params['leadSec'],params['tailSec'])
+                args = [self._random.choice((-1,1))*self._random.uniform(params['minDist'],params['maxDist']),
+                        10.,params['leadSec'],params['tailSec']]
+                import inspect
+                try:
+                    takes_clock = len(inspect.signature(self.on_move).parameters) >= 5
+                except (TypeError, ValueError):
+                    takes_clock = False
+                if takes_clock:
+                    args.append(self.clip_time)
+                self.on_move(*args)
             elif self._random.random() < .65:
                 categories = self.pools['categories']
                 pool = self._random.choices(categories, weights=[c['weight'] for c in categories])[0]['actions']
@@ -235,6 +256,7 @@ class VideoMascotAnimator(MascotAnimator):
                 break
             if kind == 'frame':
                 self._video_frame = data
+                self._media_t += duration
                 self._due = max(self._due, now-.1)+duration
             elif kind == 'end':
                 self._ended()
@@ -262,6 +284,14 @@ class VideoMascotAnimator(MascotAnimator):
         painter.scale(1+(1-sy)*.5, sy)
         painter.translate(-self.width/2, -self.height*.9)
         painter.drawImage(QRectF(0,0,self.width,self.height), self._video_frame)
+        # 交叉淡入：旧片段最后一帧盖在新帧上淡出（dsh-pet 双缓冲 .18s 同款）
+        age = time.monotonic()-self._fade_at
+        if self._prev_frame is not None and 0 <= age < .18:
+            painter.setOpacity(1-age/.18)
+            painter.drawImage(QRectF(0,0,self.width,self.height), self._prev_frame)
+            painter.setOpacity(1.)
+        elif age >= .18:
+            self._prev_frame = None
         if self.sunglasses:
             from PyQt5.QtGui import QColor
             painter.setPen(Qt.NoPen)

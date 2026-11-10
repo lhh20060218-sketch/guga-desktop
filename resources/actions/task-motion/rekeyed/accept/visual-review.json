@@ -1,0 +1,26 @@
+{
+  "status": "approved",
+  "reviewer": "Trae(2026-11-07 重抠+过审)",
+  "checks": {
+    "continuous_motion": true,
+    "no_ghosts": true,
+    "anatomy": true,
+    "identity": true,
+    "entry_exit_transition": true,
+    "alpha_clean": true,
+    "despeilled": true,
+    "canvas_matches_v2": true,
+    "no_opaque_background": true
+  },
+  "user_approval": {
+    "by": "user",
+    "quote": "队长指示接入 dz3 批 12 条动作素材（\"接\"）"
+  },
+  "loop_tail_diff": null,
+  "basis": " dz3批·一次性接旨",
+  "source": "G:/dz3 绿幕源片 · tools/make_action_pack.py 管线",
+  "frames_sha256": "e206326cd1bff5dc0d60fd1d6c6c09f040843fb974a55f1538a58bba612c4e63",
+  "playback": "once",
+  "matte": "border-key + GrabCut + premultiplied-alpha unmix",
+  "note": "旧素材 384x672 alpha 全不透明（整块实底），本目录为逐帧重抠产物：背景/地影清零、边缘反解底色、画布统一 458x660/脚底 620；内容与原动作一致（未插帧、未改帧序）。"
+}

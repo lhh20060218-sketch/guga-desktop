@@ -8,9 +8,15 @@ import time
 import numpy as np
 
 ROOT=Path(__file__).resolve().parents[1]
-MODEL_PATH=ROOT/'resources/models/speaker/3dspeaker_eres2net_base_16k.onnx'
-PROFILE_PATH=ROOT/'runtime/voice/owner_profile.npy'
-META_PATH=ROOT/'runtime/voice/owner_profile.json'
+MODEL_PATH=ROOT/'resources/models/speaker/3dspeaker_eres2net_base_16k.onnx'   # 只读资源
+try:  # 声纹档案属于运行期数据：安装目录只读时写到用户目录
+    from core import guga_paths
+    _VOICE_DIR=guga_paths.RUNTIME/'voice'
+except Exception:  # pragma: no cover
+    _base=Path(os.environ.get('LOCALAPPDATA') or os.environ.get('APPDATA') or Path.home())
+    _VOICE_DIR=_base/'GUGA'/'runtime'/'voice'
+PROFILE_PATH=_VOICE_DIR/'owner_profile.npy'
+META_PATH=_VOICE_DIR/'owner_profile.json'
 SAMPLE_RATE=16000
 _EXTRACTOR=None
 

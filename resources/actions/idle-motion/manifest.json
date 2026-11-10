@@ -3,16 +3,26 @@
   "clips": [
     {
       "name": "doze",
-      "frames": "doze/frames",
+      "frames": "v2/doze/frames",
       "native_fps": 30.0,
       "weight": 0.8
     },
     {
       "name": "heart",
-      "frames": "heart/frames",
+      "frames": "v2/heart/frames",
       "native_fps": 30.0,
       "weight": 1.0
+    },
+    {
+      "name": "idle",
+      "frames": "v2/idle/frames",
+      "native_fps": 24.0,
+      "weight": 1.0,
+      "cache": {
+        "strategy": "lru",
+        "max_frames": 48
+      }
     }
   ],
-  "note": "新形象（女孩+企鹅管家）逐帧真动作；30fps 原生帧，源自重制后的绿幕视频离线抠像。"
+  "note": "新形象（女孩+企鹅管家）逐帧真动作；doze/heart 为 30fps 一次性开场，idle 为 24fps 无缝循环底座（v2 458x660 画布，源分辨率抠像 + 预乘 Lanczos 降采样，tools/key_action_pack.py 产出）。"
 }

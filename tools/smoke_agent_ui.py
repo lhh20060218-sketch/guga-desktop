@@ -89,11 +89,19 @@ with tempfile.TemporaryDirectory() as folder, patch('core.keyboard_hook.Keyboard
         start.assert_called_once_with(cfg)
         panel.voice._cfg = cfg
         panel.read_aloud.setChecked(True)
-        with patch.object(panel.agent, '_request', return_value=dict(role='assistant', content='DeepSeek 测试答案：5。')), \
+        request = '帮我读取当前记事本窗口的标题'
+        voice_replies = [
+            dict(role='assistant', content=None, tool_calls=[dict(id='voice-t1', type='function',
+                function=dict(name='app_state', arguments='{}'))]),
+            dict(role='assistant', content='DeepSeek 测试答案：5。')]
+        with patch.object(panel.agent, '_request', side_effect=lambda *args, **kwargs: voice_replies.pop(0)), \
              patch.object(pet, '_say_with_expression') as local_speech:
-            panel.voice.transcript.emit('饲养员', '二加三等于多少？')
+            # Real Qwen order: ASR text lands first, then the speech model's
+            # ask_deepseek function call must be handed to the agent loop.
+            panel.voice._handle_event(dict(type='conversation.item.input_audio_transcription.completed',
+                response_id='voice-r0', transcript=request))
             panel.voice._handle_event(dict(type='response.function_call_arguments.done', response_id='voice-r1',
-                call_id='voice-c1', name='ask_deepseek', arguments=json.dumps({'request': '二加三等于多少？'})))
+                call_id='voice-c1', name='ask_deepseek', arguments=json.dumps({'request': request})))
             deadline = time.monotonic() + 5
             while panel.busy and time.monotonic() < deadline:
                 app.processEvents()
@@ -107,7 +115,7 @@ with tempfile.TemporaryDirectory() as folder, patch('core.keyboard_hook.Keyboard
                 assert packet['item']['call_id'] == 'voice-c1'
                 ack=json.loads(packet['item']['output'])
                 assert ack['execution_pending'] is True and '开始处理' in ack['answer']
-                assert any('DeepSeek 测试答案：5。' in speech for speech,_ in panel.voice._notices), 'Final answer must be queued separately after immediate acknowledgement'
+                assert any('DeepSeek 测试答案：5。' in item[0] for item in panel.voice._notices), 'Final answer must be queued separately after immediate acknowledgement'
         assert panel.close_button.isVisible()
         panel.close_button.click()
         assert not panel.isVisible()

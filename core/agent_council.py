@@ -31,8 +31,10 @@ class DiscussionWorker(QObject):
         transcript=[];results=[]
         def work():
             try:
-                if not cfg.get('api_key'):raise RuntimeError('请先配置讨论所用模型 API')
-                base=cfg.get('base_url','https://api.deepseek.com').rstrip('/')
+                from core.ai_chat import require_model_config
+                from core import model_endpoint
+                require_model_config(cfg)   # 缺配置就明确报错，不用任何默认端点/默认模型
+                base=model_endpoint.base_of(cfg.get('base_url')) or str(cfg.get('base_url','')).strip().rstrip('/')
                 endpoint=urlsplit(base)
                 headers={'Authorization':'Bearer '+cfg['api_key'],'Content-Type':'application/json','User-Agent':'GugaDesktopPet/1.0'}
                 if endpoint.hostname=='opencode.ai' and endpoint.path.startswith(('/inference/go/','/zen/go/')):
@@ -53,12 +55,13 @@ class DiscussionWorker(QObject):
                         system+=identity_instructions(profile)
                         dialogue='\n'.join('%s：%s'%(x['speaker'],x['text']) for x in transcript[-8:]) or '（由你先开口）'
                         prompt='讨论主题：'+topic+'\n已有对话：\n'+dialogue+'\n请给出你的下一段意见，直接说内容。'
-                        payload=dict(model=cfg.get('model','deepseek-v4.1-flash'),
+                        payload=dict(model=cfg.get('model'),
                             messages=[dict(role='system',content=system),dict(role='user',content=prompt)],
                             max_tokens=700,stream=False,thinking={'type':'disabled'})
                         if endpoint.hostname=='opencode.ai' and endpoint.path.startswith(('/inference/go/','/zen/go/')):
                             payload['reasoning_effort']='none'
-                        response=requests.post(base+'/chat/completions',headers=headers,json=payload,timeout=(6,45))
+                        from core import model_endpoint
+                        response=model_endpoint.post(base+'/chat/completions',headers=headers,json=payload,timeout=(6,45))
                         if response.status_code!=200:raise RuntimeError('讨论服务返回 HTTP '+str(response.status_code))
                         data=response.json();text=str(((data.get('choices') or [{}])[0].get('message') or {}).get('content') or '').strip()
                         if not text:raise RuntimeError('讨论模型没有返回正文')
@@ -88,6 +91,6 @@ def council_payload(config,profile,memories,topic,dialogue):
     """Small pure helper used by tests; no network or credentials."""
     system=('你是%s，角色%s，擅长%s。请就主题与同伴具体讨论，180字以内，不输出思维链。\n长期记忆：\n%s'%
         (profile['display_name'],profile['role'],profile['specialty'],memories))
-    return dict(model=config.get('model','deepseek-v4.1-flash'),messages=[
+    return dict(model=config.get('model'),messages=[
         dict(role='system',content=system),dict(role='user',content='讨论主题：'+topic+'\n已有对话：\n'+dialogue)],
         max_tokens=700,stream=False,thinking={'type':'disabled'})

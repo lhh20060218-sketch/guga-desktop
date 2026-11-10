@@ -22,7 +22,7 @@ def request_payload(config,messages,effort='quick'):
     effort=effort if effort in LEVELS else 'quick'
     endpoint=urlsplit(config.get('base_url',''))
     go=endpoint.hostname=='opencode.ai' and endpoint.path.startswith(('/inference/go/','/zen/go/'))
-    payload=dict(model=config.get('model','deepseek-v4.1-flash'),messages=messages,
+    payload=dict(model=config.get('model'),messages=messages,
                  max_tokens=LEVELS[effort][1],stream=True,stream_options={'include_usage':True},
                  thinking={'type':'disabled' if effort=='quick' else 'enabled'})
     if effort!='quick':payload['reasoning_effort']=effort
@@ -64,7 +64,8 @@ class AnswerWorker(QObject):
             result=dict(conversation_id=ident,kind='answer',generation=generation,ok=False,read_aloud=read_aloud)
             response=None
             try:
-                if not cfg.get('api_key'):raise RuntimeError('请先配置聊天模型 API')
+                from core.ai_chat import require_model_config
+                require_model_config(cfg)   # 缺 Key/服务商/模型名时明确报错，绝不回退默认端点
                 sources=[];search_state='not_needed'
                 if needs_web_search(prompt,bool(image_url)):
                     try:
@@ -81,12 +82,18 @@ class AnswerWorker(QObject):
                         json.dumps(sources,ensure_ascii=False)+'\n仅在摘要直接支持具体结论时用[1]等编号引用，不相关的来源不引用。摘要未覆盖问题时明确说明检索资料不足，稳定常识可另行解释，时效事实不能猜。不要输出来源列表（由宿主附加）。摘要不是已核实的网页全文。')
                 else:
                     messages[0]['content']+='\n【本轮联网状态】'+search_state+'。没有取得可引用的联网资料，不能声称已经查到；涉及时效事实要说明本轮未能核实。'
-                base=cfg.get('base_url','https://api.deepseek.com').rstrip('/')
+                from core import model_endpoint
+                base=model_endpoint.base_of(cfg.get('base_url')) or str(cfg.get('base_url')).strip().rstrip('/')
                 headers={'Authorization':'Bearer '+cfg['api_key'],'Content-Type':'application/json','User-Agent':'GugaDesktopPet/1.0','x-opencode-session':ident}
-                response=requests.post(base+'/chat/completions',headers=headers,json=request_payload(cfg,messages,effort),stream=True,timeout=(6,90 if effort!='quick' else 35))
+                response=model_endpoint.post(base+'/chat/completions',headers=headers,json=request_payload(cfg,messages,effort),stream=True,timeout=(6,90 if effort!='quick' else 35))
                 if generation==self.generation:self.response=response
-                if response.status_code!=200:raise RuntimeError('问答服务返回 HTTP '+str(response.status_code)+'，请检查模型或额度')
-                text='';last=0;started=time.monotonic();budget=150 if effort!='quick' else 50
+                if response.status_code!=200:
+                    info=model_endpoint.http_failure(response.status_code,base,model=cfg.get('model'))
+                    text=info.get('title') or ('问答服务返回 HTTP '+str(response.status_code))
+                    if info.get('next_step'):text+='；'+info['next_step']
+                    if info.get('examples'):text+='。已验证可用：'+'；'.join(info['examples'])
+                    raise RuntimeError(text)
+                text='';last=0;started=time.monotonic();budget=150 if effort!='quick' else 50;finish=''
                 for line in response.iter_lines(chunk_size=128):
                     if cancel.is_set():return
                     if time.monotonic()-started>budget:raise RuntimeError('本轮问答达到时间上限，可降低思考档位重试')
@@ -97,6 +104,7 @@ class AnswerWorker(QObject):
                     if data=='[DONE]':break
                     item=json.loads(data);choices=item.get('choices') or []
                     delta=choices[0].get('delta',{}) if choices else {}
+                    if choices and choices[0].get('finish_reason'):finish=choices[0].get('finish_reason')
                     part=delta.get('content')
                     if isinstance(part,str):
                         text+=part
@@ -106,6 +114,7 @@ class AnswerWorker(QObject):
                 expression,action,text=parse_reply(plain_answer(text))
                 text=plain_answer(text)
                 if not text:raise RuntimeError('模型没有返回可展示的回答正文')
+                if finish=='length':text+='\n\n（回答达到长度上限被截断，可以说“继续”让我接着写）'
                 if search_state in ('empty','unavailable'):text='这次联网没能取得可引用的资料，实时信息还需要核实。\n'+text
                 text=re.sub(r'\[(\d+)\]',lambda m:m.group(0) if 1<=int(m.group(1))<=len(sources) else '',text)
                 cited={int(x) for x in re.findall(r'\[(\d+)\]',text)}

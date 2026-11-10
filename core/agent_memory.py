@@ -5,9 +5,10 @@ from contextlib import contextmanager
 from pathlib import Path
 
 from core.desktop_access import redact
+from core import guga_paths
 
 ROOT=Path(__file__).resolve().parents[1]
-DEFAULT_PATH=ROOT/'runtime/multiagent/memory.sqlite3'
+DEFAULT_PATH=guga_paths.RUNTIME/'multiagent/memory.sqlite3'
 PROFILES={
     '001':dict(display_name='咕嘎',role='总执行官',specialty='综合分析、通用任务、电脑操作与项目监督',expression='happy',appearance='guga'),
     '002':dict(display_name='大肥鱼',role='技术审查员',specialty='DeepSeek Harness、方案审查、长任务拆解、测试验收与漏洞检查',expression='surprised',appearance='dafish'),

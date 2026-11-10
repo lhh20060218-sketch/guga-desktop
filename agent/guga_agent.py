@@ -12,6 +12,7 @@
     - Ctrl+C 退出值守；赛后删除整个目录即可，无任何残留
 """
 import os
+import re
 import sys
 import json
 import time
@@ -19,7 +20,19 @@ import threading
 import urllib.request
 import urllib.error
 
-BASE = os.environ.get("GUGA_CLOUD", "http://39.107.48.60:3000")   # 云端大脑地址；可用环境变量 GUGA_CLOUD 指向自建服务
+# 暂停/中止类型：与本机桌宠共用 core.input_guard；独立运行时退回永不命中的占位类
+_REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _REPO not in sys.path:
+    sys.path.insert(0, _REPO)
+try:
+    from core.input_guard import Paused as PausedError, Stopped as StoppedError
+except Exception:
+    class _NeverControl(Exception):
+        pass
+    PausedError = StoppedError = _NeverControl
+
+# 云端大脑地址只由用户配置下发（桌面端写入 GUGA_CLOUD），不内置任何端点。
+BASE = os.environ.get("GUGA_CLOUD", "").rstrip("/")
 # 冻结成 exe 时 __file__ 指向临时解包目录 _MEIxxxxx，必须用 sys.executable 才是本体真实位置
 if getattr(sys, 'frozen', False):
     HERE = os.path.dirname(os.path.abspath(sys.executable))
@@ -34,12 +47,59 @@ def api(path, data=None, token=None, timeout=20):
     if token:
         req.add_header("X-Agent-Token", token)
     body = json.dumps(data).encode("utf-8") if data is not None else None
-    with urllib.request.urlopen(req, body, timeout=timeout) as r:
+    if data is not None:
+        # 云端 JSON POST 也要保留 POST 重定向：http→https / 补斜杠跳转后
+        # urllib 默认会改成 GET，服务端只收 POST 时就会回 405。
+        from core.model_endpoint import urlopen_post
+        with urlopen_post(req, body, timeout=timeout) as r:
+            return json.loads(r.read().decode("utf-8"))
+    with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.loads(r.read().decode("utf-8"))
 
 
 def log(msg):
     print(f"[咕嘎本体 {time.strftime('%H:%M:%S')}] {msg}", flush=True)
+
+
+AUX_DEGRADED_HINTS = {
+    'CLOUD_NOT_ENTITLED': '云端辅助未开通，已用本地模式继续',
+    'CLOUD_QUOTA_EXCEEDED': '云端额度用完，已用本地模式继续',
+}
+
+
+def degraded_hint(code):
+    """code 只用于提示文案；不写进任务状态，也不作为失败原因。"""
+    return AUX_DEGRADED_HINTS.get(str(code or ''),
+                                  '云端辅助不可用，已用本地模式继续')
+
+
+def consult_degraded(exc):
+    """精确规则：HTTP 403 且 body.degraded === true 且 helper === "consult"。
+
+    命中时等价于服务端异常兜底 {"type":"deliverable"}：把当前回复当正文继续交付。
+    返回 dict(hit, hint, code, c)；未命中 hit=False。
+    """
+    try:
+        body = json.loads(exc.read().decode("utf-8") or "{}")
+    except Exception:
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+    code = str(body.get("code") or "")
+    hit = (getattr(exc, "code", 0) == 403 and bool(body.get("degraded"))
+           and str(body.get("helper") or "") == "consult")
+    return dict(hit=hit, code=code, hint=degraded_hint(code),
+                c={"type": "deliverable"} if hit else {})
+
+
+def result_payload(job, content, aux_note=""):
+    """任务结果：降级只留提示，不把 code 写进状态/失败原因，ok 仍为 True。"""
+    payload = {"taskId": job["taskId"], "stId": job["stId"],
+               "ok": True, "content": content}
+    if aux_note:
+        payload["channel_notice"] = aux_note
+        payload["note"] = aux_note
+    return payload
 
 
 AGENT_VERSION = "0.15"   # 随心跳上报：下次"跑的是哪一版"不用再靠文件时间猜
@@ -67,13 +127,24 @@ def pair(code):
     return r["token"]
 
 
-def run_job(job, token):
+def run_job(job, token, on_step=None):
     """领到单：真实指挥本机豆包 → 每轮读完豆包回复先请示大脑 →
     大脑说是交付就交，说是在反问就按大脑拟好的话追问——绝不盲交、绝不死循环。
-    视觉层：定位按钮、读回复都先"看"再动（see/locate），失败自动回退旧启发式。"""
+    视觉层：定位按钮、读回复都先"看"再动（see/locate），失败自动回退旧启发式。
+    on_step(round, text)：逐轮台账回调（可选，写失败绝不影响执行）。"""
+
+    def _step(round_no, text):
+        if not on_step:
+            return
+        try:
+            on_step(round_no, text)
+        except Exception:
+            pass
+
     import guga_executor as dex
     dex.TOKEN = token   # 视觉请示要带执行方身份
     dex.CTX = {"taskId": job["taskId"], "stId": job["stId"]}   # 取证截图随任务上传网页证据墙
+    dex.reset_aux_notices()   # 每单从干净状态开始记“云端辅助不可用”
     log(f"执行器 v{dex.EXEC_VERSION}（本体 v{AGENT_VERSION}）就位")
     log(dex.dpi_report())   # 一行体检：显示缩放没对齐这里立刻露馅，不用等点击歪了才发现
     log(dex.vis_report())   # 跨分辨率体检：这台机器"模型能不能看清界面"，换机前先看这行
@@ -81,6 +152,16 @@ def run_job(job, token):
     # 服务端从目标里识别的目标软件（如 WorkBuddy/豆包）——派哪个软件就指挥哪个软件
     app = str(job.get("app") or "").strip() or "豆包"
     log(f"接到任务「{job['name']}」（第 {job['attempt']} 次执行），开始指挥本机{app}……")
+    # ---- 路由查表：声明里带适配器的软件，直接交给适配器真机执行 ----
+    # 适配器返回失败码时如实报失败并给可行动提示，绝不降级成模型自己写（立身之本）。
+    try:
+        from core.adapters.dispatch import adapter_for
+        app_id, adapter = adapter_for(app)
+    except Exception as e:
+        app_id, adapter = "", None
+        log(f"适配器查表异常（{e}），按执行器流程继续")
+    if adapter is not None:
+        return _run_with_adapter(adapter, app_id, job, app, token, _step)
     q1 = (f"【总目标】{job['goal']}\n"
           f"请完成其中的子任务「{job['name']}」。\n"
           f"验收要求（必须满足）：{job['acceptance']}\n")
@@ -98,6 +179,9 @@ def run_job(job, token):
     except Exception:
         pass
     deliver, err = "", ""
+    # 返回值统一成 {ok, note}：调用方（桌宠内嵌执行方）据此判断这一单到底成没成，
+    # 不能再用「函数没抛异常就算成功」这种糊涂账（暂停/失败都会被误记成已完成）。
+    result = {"ok": False, "note": ""}
     try:
         # 开工前先把鼠标挪到屏幕中心: 无人值守/演示休息时鼠标常停在左上角,
         # 正落在 FAILSAFE 急停区, 第一轮操作就会触发急停(2026-11-05 测试机实测).
@@ -148,7 +232,15 @@ def run_job(job, token):
                 q1 = f"【接力说明】以下为上一步产物全文，请基于它继续：\n{atext[:4000]}\n\n" + q1
         nxt, rounds = q1, 0
         last_reply = ""
-        while rounds < 4:
+        aux_note = ""   # 云端辅助被拒（403/degraded）时只留痕，不整单失败
+        # 追问轮次上限：旧版硬编码 4，长任务常在“豆包反问/分步交付”时被误判失败。
+        # 可用环境变量 GUGA_AGENT_ROUNDS 调整（2~12，默认 6）。
+        try:
+            max_rounds = int(os.environ.get('GUGA_AGENT_ROUNDS') or 6)
+        except Exception:
+            max_rounds = 6
+        max_rounds = max(2, min(12, max_rounds))
+        while rounds < max_rounds:
             # 暂停检查点：少爷在网页按了暂停，本轮边界立刻收手上报进度（进度存档可无缝续跑）
             try:
                 ctl = api("/api/agent/ctl", {"taskId": job["taskId"]}, token, timeout=15)
@@ -161,10 +253,12 @@ def run_job(job, token):
                 api("/api/agent/paused", {"taskId": job["taskId"], "stId": job["stId"],
                                           "ctx": ctx}, token, timeout=15)
                 log(f"少爷已暂停：进度已存档（{ctx}），收手待命")
-                return
+                _step(rounds, '已暂停：%s' % ctx)
+                raise PausedError(ctx)
             rounds += 1
             ok, reply = dex.ask_round(w, nxt, old_clip, tag, rounds, app)
             last_reply = reply or last_reply
+            _step(rounds, '第 %d 轮 · %s' % (rounds, (reply or '（无回复）')[:140]))
             if not ok:
                 err = f"第 {rounds} 轮未能取到{app}回复（粘贴/超时/复制失败）"
                 break
@@ -174,6 +268,18 @@ def run_job(job, token):
                     "goal": job["goal"], "name": job["name"],
                     "acceptance": job["acceptance"], "reply": reply, "app": app,
                 }, token, timeout=90)
+            except urllib.error.HTTPError as e:
+                d = consult_degraded(e)
+                if d["hit"]:
+                    aux_note = d["hint"]
+                    log('云端辅助降级：helper=consult code=%s at=%s'
+                        % (d["code"] or '-', time.strftime('%Y-%m-%d %H:%M:%S')))
+                    log(f"{aux_note}；等价于服务端兜底 deliverable，按当前回复继续交付")
+                    c = d["c"]
+                else:
+                    log(f"大脑请示通道波动（{e}），按当前回复直接交付，由网页验收兜底")
+                    deliver = reply
+                    break
             except Exception as e:
                 log(f"大脑请示通道波动（{e}），按当前回复直接交付，由网页验收兜底")
                 deliver = reply
@@ -186,29 +292,133 @@ def run_job(job, token):
             deliver = reply
             break
         else:
-            err = "追问 4 轮仍未拿到完整交付"
+            err = f"追问 {max_rounds} 轮仍未拿到完整交付"
         if deliver:
-            r = api("/api/agent/result", {"taskId": job["taskId"], "stId": job["stId"],
-                                          "ok": True, "content": deliver}, token)
+            payload = result_payload(job, deliver, aux_note)
+            r = api("/api/agent/result", payload, token)
+            _step(rounds, '产物已回传（%d 字）· 网页验收：%s%s'
+                  % (len(deliver), '通过' if r.get("pass") else '打回',
+                     (' · ' + aux_note) if aux_note else ''))
             log(f"产物已回传（{len(deliver)} 字）。网页验收结果："
-                + ("✅ 通过" if r.get("pass") else "❌ 被监工打回，稍后会领到返工单"))
+                + ("✅ 通过" if r.get("pass") else "❌ 被监工打回，稍后会领到返工单")
+                + ((" · " + aux_note) if aux_note else ""))
+            result = {"ok": True,
+                      "note": ('产物已回传（%d 字）· 网页验收：%s'
+                               % (len(deliver), '通过' if r.get("pass") else '打回'))
+                              + ((" · " + aux_note) if aux_note else "")}
         else:
             api("/api/agent/result", {"taskId": job["taskId"], "stId": job["stId"],
                                       "ok": False, "note": err[:200]}, token)
             log(f"未能拿到完整交付（{err}），已如实回报网页")
+            result = {"ok": False, "note": err[:200]}
+    except PausedError as e:
+        # 用户叫停不是失败：进度存档后按暂停上报，并向上抛出，让桌宠知道是暂停不是完成
+        ctx = f"执行器在安全点停手：{str(e)[:100]}"
+        try:
+            api("/api/agent/paused", {"taskId": job["taskId"], "stId": job["stId"],
+                                      "ctx": ctx}, token, timeout=15)
+        except Exception:
+            pass
+        log(f"已暂停：{ctx}，收手待命")
+        raise
+    except StoppedError as e:
+        try:
+            api("/api/agent/result", {"taskId": job["taskId"], "stId": job["stId"],
+                                      "ok": False, "aborted": True,
+                                      "note": ('已中止：' + str(e)[:160])[:200]}, token)
+        except Exception:
+            pass
+        log(f"已中止：{str(e)[:120]}")
+        raise
     except Exception as e:
-        log(f"执行异常：{e}")
         try:
             api("/api/agent/result", {"taskId": job["taskId"], "stId": job["stId"],
                                       "ok": False, "note": str(e)[:200]}, token)
         except Exception:
             pass
+        result = {"ok": False, "note": '执行异常：%s' % str(e)[:160]}
     finally:
         dex.CTX = None
         try:
             pyperclip.copy(old_clip)   # 恢复剪贴板
         except Exception:
             pass
+    return result
+
+
+def _adapter_prompt(job, app):
+    """把派单任务变成一句能直接丢给目标软件的话。
+
+    例：「使用豆包生成一篇 200 字作文」→「生成一篇 200 字作文。
+    验收要求：正文不少于 200 字。」——去掉指派词，剩下的才是要让豆包做的事。"""
+    body = str(job.get('goal') or job.get('name') or '').strip()
+    body = re.sub(r'^(帮我|给我|帮忙|请|使用|通过|用|叫|让|交给|派给)\s*', '', body)
+    body = re.sub(r'^%s\s*' % re.escape(app), '', body)
+    acc = str(job.get('acceptance') or '').strip()
+    if acc:
+        body = '%s\n验收要求：%s' % (body, acc)
+    text = body.strip()
+    if not text:
+        return str(job.get('name') or '')
+    # 所有派单入口共用同一个组装函数：固定约束只能追加，不能覆盖任务正文。
+    from core.handoff_prompt import compose
+    return compose(text, None)
+
+
+def _run_with_adapter(adapter, app_id, job, app, token, step):
+    """适配器直连路径：真实调用目标软件，产物带来源标签回传。
+
+    失败（window_not_found / login_required / blocked_by_window / timeout …）时
+    如实回报网页并给可行动提示；这条路径没有任何“模型自己写”的退路。
+    """
+    import guga_executor as dex
+    prompt = _adapter_prompt(job, app)
+    log(f"路由命中「{app_id}」适配器 → 真实调用 {app}（不走模型代写）")
+    step(0, '路由命中「%s」适配器，真实调用 %s' % (app_id, app))
+    started = time.time()
+    try:
+        res = adapter.ask(prompt, timeout_seconds=180, retry=1, prefer_mcp=True)
+    except TypeError:
+        res = adapter.ask(prompt)
+    except Exception as e:
+        res = {"ok": False, "code": "exception", "hint": "适配器异常：%s" % str(e)[:120]}
+    seconds = int(time.time() - started)
+
+    if res.get("ok") and str(res.get("text") or "").strip():
+        text = str(res["text"]).strip()
+        source = res.get("source") or {}
+        label = source.get("label") or ("%s（来源标签缺失）" % app)
+        notice = str(res.get("notice") or "").strip()
+        aux = dex.aux_notice_text()
+        if aux:
+            notice = (notice + ' · ' + aux).strip(' ·')
+        note = '产物已回传（%d 字，%d 秒）· 来源：%s' % (len(text), seconds, label)
+        payload = {"taskId": job["taskId"], "stId": job["stId"], "ok": True,
+                   "content": text, "source": source, "note": note}
+        if notice:
+            payload["channel_notice"] = notice[:200]
+        try:
+            r = api("/api/agent/result", payload, token)
+            verdict = '通过' if r.get("pass") else '打回'
+        except Exception as e:
+            verdict = '回传失败（%s）' % str(e)[:40]
+        step(1, '%s · 网页验收：%s' % (note, verdict))
+        log('%s；网页验收：%s%s' % (note, verdict, (' · ' + notice) if notice else ''))
+        return {"ok": True, "note": '%s · 网页验收：%s' % (note, verdict),
+                "source": source, "text": text}
+
+    code = str(res.get("code") or "failed")
+    hint = str(res.get("hint") or res.get("message") or "适配器没有返回正文")
+    from core import tool_mandate
+    note = tool_mandate.failure_message({"name": app}, '%s：%s' % (code, hint))[:200]
+    try:
+        api("/api/agent/result", {"taskId": job["taskId"], "stId": job["stId"],
+                                  "ok": False, "reason": code, "note": note}, token)
+    except Exception:
+        pass
+    step(1, '适配器失败（%s）：%s' % (code, hint[:120]))
+    log(note)
+    return {"ok": False, "note": note, "reason": code}
 
 
 def _keepalive(token, stop):

@@ -2,7 +2,7 @@
 
 - **档案ID**：zhipu-sense
 - **软件**：智谱清言（ChatGLM 桌面客户端）
-- **实测版本**：2.0.7（`C:\Users\zhipengcheng\AppData\Local\ZP\chatglm\智谱清言.exe`）
+- **实测版本**：2.0.7（`%USERPROFILE%\AppData\Local\ZP\chatglm\智谱清言.exe`）
 - **实测时间**：2026-11-06（Asia/Shanghai）
 - **实测环境**：Windows 11 单屏，物理 2560×1600，缩放 100%
 - **截图目录**：`knowledge/sense/imgs/`

@@ -1,16 +1,28 @@
 # -*- coding: utf-8 -*-
 """咕嘎企鹅桌宠主窗口 — 透明悬浮（企鹅精灵图动画 + 视觉 + 语音）"""
-import ctypes, os, sys, logging, random, math, threading
+import ctypes, os, sys, time, logging, random, math, threading
+from pathlib import Path
+
+try:  # 日志/状态属运行期数据：安装目录只读时不能写进 _internal
+    from core import guga_paths
+    _DATA_DIR = guga_paths.RUNTIME
+except Exception:  # pragma: no cover
+    _DATA_DIR = Path(os.environ.get('LOCALAPPDATA') or os.environ.get('APPDATA')
+                     or os.path.expanduser('~')) / 'GUGA' / 'runtime'
+try:
+    _DATA_DIR.mkdir(parents=True, exist_ok=True)
+except Exception:
+    pass
 
 logging.basicConfig(
-    filename=os.path.join(os.path.dirname(__file__), '..', 'pet_debug.log'),
+    filename=str(_DATA_DIR / 'pet_debug.log'),
     level=logging.WARNING, format='%(asctime)s %(message)s'
 )
 
 from PyQt5.QtCore import Qt, QPoint, QTimer, QRect, QElapsedTimer, pyqtSignal
 from PyQt5.QtGui import (
     QPixmap, QBitmap, QIcon, QPainter, QColor, QFont,
-    QFontMetrics, QPen, QPainterPath, QImage, QRadialGradient
+    QFontMetrics, QPen, QPainterPath, QImage, QRadialGradient, QCursor
 )
 from PyQt5.QtWidgets import (
     QWidget, QMenu, QSystemTrayIcon, QApplication, QFrame, QPlainTextEdit, QHBoxLayout, QLabel
@@ -28,8 +40,11 @@ from core.config_manager import ConfigManager
 
 GWL_EXSTYLE = -20
 WS_EX_TOOLWINDOW = 0x00000080
+WS_EX_TRANSPARENT = 0x00000020   # 点击穿透（需 WS_EX_LAYERED，Qt 透明窗自带）
 SWP_NOSIZE = 1; SWP_NOMOVE = 2; SWP_NOACTIVATE = 16; SWP_SHOWWINDOW = 64
 HWND_TOPMOST = -1; HWND_NOTOPMOST = -2
+# 命中矩形（画布比例，dsh-pet 同款思想）：身体区可交互，透明边缘一律穿透到下层应用
+HIT_X0, HIT_Y0, HIT_W, HIT_H = 0.12, 0.06, 0.76, 0.94
 
 
 def _proxy_opponents(tier: int):
@@ -99,6 +114,22 @@ class PetWindow(QWidget):
         self._anim.start()
         from ui.pet_physics import DesktopPetPhysics
         self._pet_physics=DesktopPetPhysics(self,self._anim2d,lambda:self._config.save_pos(self.x(),self.y()))
+        # ---------- dsh-pet 迁移：点击穿透 + 置顶看门狗 ----------
+        # 默认整窗穿透（透明边缘不挡下层应用），光标进身体命中区才翻转可交互（60ms 轮询）。
+        self._ignoring_mouse = None
+        self._clickthrough_ok = sys.platform == 'win32' and QApplication.platformName() != 'offscreen'
+        self._ct_timer = QTimer(self)
+        self._ct_timer.setInterval(60)
+        self._ct_timer.timeout.connect(self._poll_clickthrough)
+        if self._clickthrough_ok:
+            self._ct_timer.start()
+        # 置顶看门狗：WS_EX_TOPMOST 位还在 ≠ 窗口真在顶层带，低频重钉（1s 检查 / 5s 重钉）。
+        self._last_pin = 0.
+        self._last_screen = None
+        self._topmost_watchdog = QTimer(self)
+        self._topmost_watchdog.setInterval(1000)
+        self._topmost_watchdog.timeout.connect(self._watchdog_tick)
+        self._topmost_watchdog.start()
         self._gaze_timer = QTimer(self)
         self._gaze_timer.setInterval(160)
         self._gaze_timer.timeout.connect(self._update_avatar_gaze)
@@ -765,7 +796,7 @@ class PetWindow(QWidget):
             if panel and not panel.isVisible():panel.hide()
         except Exception as exc:
             try:
-                with open(os.path.join(os.path.dirname(__file__),'..','pet_debug.log'),'a',encoding='utf-8') as stream:
+                with open(str(_DATA_DIR / 'pet_debug.log'),'a',encoding='utf-8') as stream:
                     stream.write('agent panel warmup failed: '+type(exc).__name__+'\n')
             except OSError:pass
 
@@ -1222,7 +1253,7 @@ class PetWindow(QWidget):
         try:
             import json
             from pathlib import Path
-            path = Path(__file__).resolve().parents[1] / 'realtime_status.log'
+            path = _DATA_DIR / 'realtime_status.log'
             path.write_text(json.dumps({'status': message}, ensure_ascii=False), encoding='utf-8')
         except OSError:
             pass
@@ -1452,9 +1483,8 @@ class PetWindow(QWidget):
         """拔线自检：企鹅(管理员)内执行完整链路，结果写日志文件"""
         from core.netcut import self_test
         report = self_test()
+        path = os.path.join(str(_DATA_DIR), 'netcut_selftest.log')
         try:
-            path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                                'netcut_selftest.log')
             with open(path, 'w', encoding='utf-8') as f:
                 f.write(report + '\n')
             print('[拔线自检]\n' + report)
@@ -1469,7 +1499,7 @@ class PetWindow(QWidget):
             self._say_with_expression("咕嘎？炉石没开，开一局再自检！", "sad", "shake")
         else:
             self._say_with_expression(
-                f"咕嘎？自检有问题，详见 netcut_selftest.log（{first}）",
+                f"咕嘎？自检有问题，详见 {path}（{first}）",
                 "sad", "shake")
 
     def _netcut(self, _checked=False, board=None):
@@ -2034,6 +2064,60 @@ class PetWindow(QWidget):
         self.update()
 
     # ==================== 工具 ====================
+
+    def _interactive_lock(self):
+        """这些状态激活期间整窗保持可交互，绝不翻转穿透（dsh-pet 菜单期不翻转同款）。"""
+        if self._is_drag or self._voice_mode or getattr(self, '_recording', False):
+            return True
+        if getattr(self, '_pet_menu', None) is not None and self._pet_menu.isVisible():
+            return True
+        if getattr(self, '_agent_bubble', None) is not None and self._agent_bubble.isVisible():
+            return True
+        return False
+
+    def _set_clickthrough(self, ignore):
+        """翻转 WS_EX_TRANSPARENT；镜像状态未变就不碰系统调用（dsh-pet windowIgnore 镜像）。"""
+        if self._ignoring_mouse == ignore or not self._clickthrough_ok:
+            return
+        try:
+            hwnd = int(self.winId())
+            style = ctypes.windll.user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+            new = (style | WS_EX_TRANSPARENT) if ignore else (style & ~WS_EX_TRANSPARENT)
+            if new != style:
+                ctypes.windll.user32.SetWindowLongW(hwnd, GWL_EXSTYLE, new)
+            self._ignoring_mouse = ignore
+        except Exception as e:
+            logging.warning('clickthrough toggle failed: %s', e)
+
+    def _poll_clickthrough(self):
+        if not self._clickthrough_ok or not self.isVisible():
+            return
+        interactive = self._interactive_lock()
+        if not interactive:
+            p = self.mapFromGlobal(QCursor.pos())
+            interactive = (self.width() * HIT_X0 <= p.x() <= self.width() * (HIT_X0 + HIT_W)
+                           and self.height() * HIT_Y0 <= p.y() <= self.height() * (HIT_Y0 + HIT_H))
+        self._set_clickthrough(not interactive)
+
+    def _watchdog_tick(self):
+        if not self.isVisible():
+            return
+        now = time.monotonic()
+        if self._config._s.value('agent/topmost', True, type=bool) and now - self._last_pin >= 5.0:
+            self._last_pin = now
+            self._force_top()
+        # 跨屏/改分辨率/插拔屏：screen() 变了就把窗口钳回当前屏工作区（dsh-pet 几何热更新简化版）
+        try:
+            scr = self.screen()
+        except Exception:
+            return
+        if scr is not None and scr is not self._last_screen:
+            self._last_screen = scr
+            area = scr.availableGeometry()
+            x = max(area.left(), min(self.x(), area.right() - self.width() + 1))
+            y = max(area.top(), min(self.y(), area.bottom() - self.height() + 1))
+            if (x, y) != (self.x(), self.y()):
+                self.move(x, y)
 
     def _force_top(self):
         try:

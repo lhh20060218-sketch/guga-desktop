@@ -1,0 +1,74 @@
+{
+  "accept": {
+    "key": [
+      141.0,
+      174.0,
+      122.0
+    ],
+    "gk": 33.0,
+    "border_green_ratio": 1.0,
+    "opaque_green_before": 0.0026,
+    "edge_green_after": 0.0,
+    "alpha_cov": 0.4465
+  },
+  "pet": {
+    "key": [
+      166.0,
+      191.0,
+      136.0
+    ],
+    "gk": 25.0,
+    "border_green_ratio": 1.0,
+    "opaque_green_before": 0.0,
+    "edge_green_after": 0.0,
+    "alpha_cov": 0.4543
+  },
+  "error": {
+    "key": [
+      138.0,
+      167.0,
+      111.0
+    ],
+    "gk": 29.0,
+    "border_green_ratio": 1.0,
+    "opaque_green_before": 0.0,
+    "edge_green_after": 0.0,
+    "alpha_cov": 0.2884
+  },
+  "hello": {
+    "key": [
+      145.0,
+      169.0,
+      103.0
+    ],
+    "gk": 24.0,
+    "border_green_ratio": 0.993,
+    "opaque_green_before": 0.0,
+    "edge_green_after": 0.0,
+    "alpha_cov": 0.4565
+  },
+  "reject": {
+    "key": [
+      123.0,
+      152.0,
+      95.0
+    ],
+    "gk": 29.0,
+    "border_green_ratio": 1.0,
+    "opaque_green_before": 0.0,
+    "edge_green_after": 0.0,
+    "alpha_cov": 0.4553
+  },
+  "urge": {
+    "key": [
+      154.0,
+      180.0,
+      112.0
+    ],
+    "gk": 26.0,
+    "border_green_ratio": 1.0,
+    "opaque_green_before": 0.0,
+    "edge_green_after": 0.0,
+    "alpha_cov": 0.3459
+  }
+}

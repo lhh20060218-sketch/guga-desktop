@@ -1,0 +1,43 @@
+{
+  "source": "butler_hello.mp4",
+  "action": "hello",
+  "playback": "once",
+  "source_size": [
+    1080,
+    1920
+  ],
+  "target_size": [
+    458,
+    660
+  ],
+  "fps": 24,
+  "key_median": [
+    145.0,
+    169.0,
+    103.0
+  ],
+  "scale": 0.32745,
+  "span_raw": 1615.5,
+  "foot_raw": [
+    1792.0,
+    497.3
+  ],
+  "baseline": 620,
+  "frames": 98,
+  "key_drift": [
+    0.54,
+    0.28,
+    0.73
+  ],
+  "alpha_cov": 0.3356,
+  "fringe_before": 0.00099,
+  "fringe_after": 0.0,
+  "loop_tail": {
+    "alpha": 0.0045,
+    "rgb": 4.5
+  },
+  "glow_protected": 0,
+  "loop_seam_ok": null,
+  "tail_trimmed": 0,
+  "edge_green_after": 0.0
+}

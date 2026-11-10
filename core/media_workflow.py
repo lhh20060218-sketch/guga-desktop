@@ -6,6 +6,12 @@ import base64,json,os,re,subprocess,threading,time,uuid
 from pathlib import Path
 
 ROOT=Path(__file__).resolve().parents[1]
+try:
+    from core import guga_paths
+    WORK_ROOT=guga_paths.RUNTIME/'video-workflows'
+except Exception:                       # 独立运行兜底：用户目录，不碰安装目录
+    _base=Path(os.environ.get('LOCALAPPDATA') or os.environ.get('APPDATA') or Path.home())
+    WORK_ROOT=_base/'GUGA'/'runtime'/'video-workflows'
 VIDEO_SUFFIXES={'.mp4','.mkv','.mov','.webm'}
 
 
@@ -14,6 +20,13 @@ def ffmpeg_path():
     for path in (ROOT/'runtime/music/bin/ffmpeg.exe',ROOT/'vendor/ffmpeg.exe'):
         if path.is_file():return str(path)
     value=shutil.which('ffmpeg')
+    if not value:
+        try:
+            # imageio-ffmpeg 自带静态 ffmpeg（已装依赖），不必再要求用户单独安装
+            import imageio_ffmpeg
+            value=imageio_ffmpeg.get_ffmpeg_exe()
+        except Exception:
+            value=None
     if not value:raise ValueError('缺少FFmpeg，尚未具备视频处理依赖')
     return value
 
@@ -49,7 +62,7 @@ def validate_srt(path,duration):
 
 class MediaWorkflow:
     def __init__(self,root=None):
-        self.root=Path(root or ROOT/'runtime/video-workflows');self.root.mkdir(parents=True,exist_ok=True)
+        self.root=Path(root or WORK_ROOT);self.root.mkdir(parents=True,exist_ok=True)
         self.thread=None;self.proc=None;self.cancel=threading.Event();self.state={};self.lock=threading.RLock()
 
     def _save(self,**values):

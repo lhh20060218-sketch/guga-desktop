@@ -1,0 +1,17 @@
+{
+  "action": "urge",
+  "frames": 98,
+  "canvas": [
+    458,
+    660
+  ],
+  "baseline": 620,
+  "body_height": 537.0,
+  "scale": 1.1524,
+  "offset": [
+    19,
+    -82
+  ],
+  "matte": "border-key + GrabCut + unpremultiply",
+  "from_legacy": "resources\\actions\\task-motion\\urge\\frames"
+}

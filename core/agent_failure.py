@@ -1,8 +1,12 @@
 """Evidence-based failure reports that remain available when the model is down."""
+import os
 import re
 from urllib.parse import urlsplit
 
 import requests
+
+from core import model_endpoint
+from core.failure_report import format_failure, redact_body, redact_raw
 
 FAILURE_CONTRACT = '''
 【执行与失败协议】
@@ -14,8 +18,42 @@ FAILURE_CONTRACT = '''
 '''
 
 
-def exception_evidence(exc, base_url='', *, stage='model_request', elapsed_ms=0, request_index=0):
-    """Keep type/errno/status only: upstream messages may echo keys or proxy URLs."""
+def proxy_snapshot():
+    """记录进程实际会走的代理（requests 默认 trust_env=True，代理也能返回 405）。"""
+    found = {}
+    for name in ('HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'NO_PROXY'):
+        value = str(os.environ.get(name) or '').strip()
+        if value:
+            found[name] = re.sub(r'(?i)(://)[^/@]+@', r'\1***@', value)[:160]
+    try:
+        import winreg
+        with winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                            r'Software\Microsoft\Windows\CurrentVersion\Internet Settings') as key:
+            enabled, _ = winreg.QueryValueEx(key, 'ProxyEnable')
+            server, _ = winreg.QueryValueEx(key, 'ProxyServer')
+        if int(enabled or 0) and server:
+            found['WindowsProxy'] = str(server)[:160]
+    except Exception:
+        pass
+    return found
+
+
+def _safe_endpoint(url):
+    """诊断里只保留 scheme://host:port/path，丢掉 userinfo 与 query（可能带 Key）。"""
+    try:
+        parts = urlsplit(str(url or ''))
+        host = parts.hostname or ''
+        if not host:
+            return ''
+        port = ':%s' % parts.port if parts.port else ''
+        return '%s://%s%s%s' % (parts.scheme or 'https', host, port, parts.path or '')
+    except Exception:
+        return ''
+
+
+def exception_evidence(exc, base_url='', *, stage='model_request', elapsed_ms=0, request_index=0,
+                       model='', attempts=None, credential=None):
+    """保留类型/errno/状态码；上游响应体先脱敏再截断 240 字，绝不落 Authorization。"""
     queue=[exc];seen=set();names=[];codes=[]
     while queue and len(seen)<16:
         item=queue.pop(0)
@@ -27,6 +65,14 @@ def exception_evidence(exc, base_url='', *, stage='model_request', elapsed_ms=0,
         queue.extend([item.__cause__,item.__context__,getattr(item,'reason',None)])
         queue.extend(x for x in item.args if isinstance(x,BaseException))
     kinds=set(names)
+    response = getattr(exc, 'response', None)
+    # 401/403 需要区分“Key 无效 / 无模型权限 / 额度用尽”：取上游响应体但先打码、
+    # 再截断 240 字。requests.Response.text 一定是字符串；测试桩的 Mock 不是，
+    # 不能用 str(Mock) 污染诊断，所以只接受真正的 str。
+    raw_body = getattr(response, 'text', '')
+    detail = redact_body(raw_body, 240) if isinstance(raw_body, str) else ''
+    status = getattr(response, 'status_code', None)
+    actual_url = _safe_endpoint(getattr(response, 'url', ''))
     if isinstance(exc,requests.exceptions.ProxyError) or 'ProxyError' in kinds:
         code='proxy';reason='模型请求在代理连接层失败';next_step='核对咕嘎进程使用的代理及代理服务状态'
     elif isinstance(exc,requests.exceptions.SSLError) or any('SSL' in x for x in kinds):
@@ -40,32 +86,75 @@ def exception_evidence(exc, base_url='', *, stage='model_request', elapsed_ms=0,
     elif isinstance(exc,requests.ConnectionError):
         code='connection';reason='模型连接被中断，现有异常不足以确定远端根因';next_step='检查模型服务与网络状态；不能据此判断浏览器连接失败'
     elif isinstance(exc,requests.HTTPError):
-        status=getattr(getattr(exc,'response',None),'status_code',None)
-        code='http';reason='模型服务返回 HTTP '+str(status)
-        next_step=('核对该服务的凭据和模型权限' if status in (401,403) else
-                   '核对套餐额度或限流状态' if status in (402,429) else '核对模型服务状态和请求格式')
+        status=int(status or 0)
+        info=model_endpoint.http_failure(status, base_url, model=model, detail=detail)
+        code='http'
+        reason=info.get('title') or ('模型服务返回 HTTP '+str(status))
+        next_step=info.get('next_step') or '核对模型服务状态和请求格式'
+        next_step=str(next_step or '').rstrip('。')
+        examples=info.get('examples') or []
+        if examples:
+            next_step += '。已验证可用：' + '；'.join(examples)
+        trail=[str(item) for item in (attempts or [])
+               if isinstance(item,(dict,str))]
+        if trail:
+            next_step += '。本次请求记录：' + '；'.join(trail)
+        proxy=proxy_snapshot()
+        if proxy and status in (405,404,400):
+            next_step += '。检测到代理设置（%s）；若接口地址确认正确仍报此错，405 很可能来自代理，' \
+                         '请把该域名加入 NO_PROXY / 直连名单，或暂时关闭代理后重试' % (
+                             '，'.join('%s=%s' % item for item in proxy.items()))
+        if status==405 and getattr(getattr(exc,'response',None),'guga_proxy_bypass',False):
+            next_step += '。本次已自动绕过系统代理重发一次，仍是 405，说明不是代理改写方法导致，请优先核对 base_url 最终地址与网关是否允许 POST'
     else:
         code='executor';reason='执行器异常：'+type(exc).__name__;next_step='根据任务记录核对最后一步，保留已完成的操作'
     return dict(code=code,stage=stage,reason=reason,next_step=next_step,
         exception_types=names,os_error_codes=sorted(set(codes)),
-        http_status=getattr(getattr(exc,'response',None),'status_code',None),
-        service_host=urlsplit(base_url).hostname,elapsed_ms=round(elapsed_ms,1),request_index=request_index)
+        http_status=status,
+        request_url=actual_url or _safe_endpoint(model_endpoint.request_url(base_url)),
+        request_method='POST' if status else '',
+        attempts=list(attempts or []), proxy=proxy_snapshot(), model=str(model or ''),
+        service_host=urlsplit(actual_url or base_url).hostname,elapsed_ms=round(elapsed_ms,1),
+        request_index=request_index, detail=detail, credential=dict(credential or {}))
 
 
 def explain_failure(error, *, diagnostic=None, operations=0, events=(), blockers=(),last_tool_failure=None):
     diagnostic=diagnostic or {}
     last_tool_failure=last_tool_failure or {}
+    # 适配器失败带真实 code/stage/raw/next_action：直接输出四段，不再拼无信息占位。
+    if last_tool_failure:
+        return format_failure(
+            last_tool_failure.get('code'), last_tool_failure.get('stage'),
+            last_tool_failure.get('raw') or last_tool_failure.get('error'),
+            last_tool_failure.get('next_action'),
+            app=last_tool_failure.get('app') or None)
     reason=diagnostic.get('reason') or last_tool_failure.get('error') or str(error or '执行器没有提供明确原因')
+    if reason == '执行器报告失败':
+        reason = '旧版执行器没有记录失败码或原始异常'
     # Non-transport errors are already redacted by the task executor.
     reason=re.sub(r'\s+',' ',reason).strip()[:240]
     if not operations:
         impact='尚未调用任何操作工具，没有执行关闭、点击或文件修改。'
     else:
-        successes=sum(e.get('ok') is True for e in events)
-        impact=f'已调用工具{operations}次，其中{successes}次返回成功；这些回执不等于整个目标完成。'
-        if events:impact+='最后一个工具是'+str(events[-1].get('tool','未知工具'))+'。'
+        # 工具调用次数只说明“发出过多少输入”，不是进展；汇报必须说目标本身到哪了。
+        impact='目标本身还没有产出可验收的成品。'
+        if last_tool_failure:
+            failure_type=str(last_tool_failure.get('exception_type') or '工具失败')
+            raw_text=redact_raw(last_tool_failure.get('error') or reason)
+            first_line=re.sub(r'^[A-Za-z_][\w.]*(?:Error|Exception|Failure|Timeout)[：:]\s*',
+                              '', raw_text)[:120]
+            impact+='最后一次失败的是%s（未归类：%s: %s）。' % (
+                str(last_tool_failure.get('tool') or '未知工具'),
+                failure_type, first_line or '没有异常消息')
     next_step=diagnostic.get('next_step') or (
         '请先切到要操作的目标页面，我再重新观察后继续' if last_tool_failure.get('code') in
         ('target_ambiguous','target_not_foreground','target_missing','tab_unavailable') else
         '先重新观察目标并核对最后一步，再处理尚未完成的部分')
-    return f'这次未完成。{reason.rstrip("。")}。{impact}下一步：{next_step}。'
+    # 凭据指纹：长度 + 前四 + 后四 + 来源（main/fallback/legacy），不输出完整 Key。
+    # 用户拿这段和“昨晚能通的那份配置”直接对比，就能确认究竟换没换 Key。
+    credential=diagnostic.get('credential') or {}
+    if credential:
+        next_step=(str(next_step).rstrip('。') + '。本次凭据：长度 %s · 前四 %s … 后四 %s · 来源 %s'
+                   % (credential.get('length', 0), credential.get('head') or '—',
+                      credential.get('tail') or '—', credential.get('source') or 'main'))
+    return f'这次未完成。{reason.rstrip("。")}。{impact}下一步：{str(next_step).rstrip("。")}。'

@@ -89,9 +89,8 @@ class TTSEngine(QObject):
         self._playback_announced = False
 
         try:
-            cfg_path = os.path.join(os.path.dirname(__file__), '..', 'ai_config.json')
-            with open(cfg_path, encoding='utf-8-sig') as f:
-                self.DOUBAO_API_KEY = json.load(f).get('doubao_tts_api_key', '')
+            from core import guga_paths
+            self.DOUBAO_API_KEY = guga_paths.read_config().get('doubao_tts_api_key', '')
         except Exception:
             self.DOUBAO_API_KEY = ''
         self._use_doubao = bool(self.DOUBAO_API_KEY)

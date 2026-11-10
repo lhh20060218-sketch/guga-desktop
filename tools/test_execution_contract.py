@@ -95,8 +95,13 @@ class CompletionGateTests(unittest.TestCase):
             dict(role='assistant',content='已经完成。'),
             dict(role='assistant',content=None,tool_calls=[call('computer',{'action':'observe','hwnd':1},'b')]),
             dict(role='assistant',content='输入并复查完成。')]
+        # 输入后的第一次“已完成”会触发一次自动复查（帮小模型补证据），
+        # 因此回执按动作类型返回，而不是写死调用顺序。
+        def execute(arguments, cancel):
+            return ({'input_sent':True} if arguments.get('action')=='type'
+                    else {'observation_id':'ok'})
         with patch.object(agent,'_request',side_effect=lambda *a,**k:responses.pop(0)), \
-             patch.object(agent.computer,'execute',side_effect=[{'input_sent':True},{'observation_id':'ok'}]), \
+             patch.object(agent.computer,'execute',side_effect=execute), \
              patch('core.desktop_access.DesktopAccess.execute',return_value={'exit_code':0,'stopped':None,
                  'stdout':'{"name":"Test"}'}):
             agent._run('c',[],'输入并验证',threading.Event())

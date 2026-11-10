@@ -7,7 +7,7 @@ os.environ.setdefault('QT_QPA_PLATFORM','offscreen')
 from launcher import _prepare_qt
 _prepare_qt()
 from PyQt5.QtWidgets import QApplication
-from PyQt5.QtGui import QImage,QColor
+from PyQt5.QtGui import QImage,QColor,QPainter
 from core.task_animation import TaskAnimationDirector
 from ui.sprite_animator import SpriteAnimator
 from ui.mascot_animator import MascotAnimator
@@ -91,7 +91,9 @@ class TaskAnimationTests(unittest.TestCase):
         a=SpriteAnimator(str(ROOT/'resources'),180)
         with tempfile.TemporaryDirectory() as folder:
             base=Path(folder)/'actions/task-motion';frames=base/'thinking/frames';frames.mkdir(parents=True)
-            image=QImage(80,100,QImage.Format_ARGB32);image.fill(QColor('red'));image.save(str(frames/'00.png'))
+            image=QImage(80,100,QImage.Format_ARGB32);image.fill(QColor(0,0,0,0))
+            painter=QPainter(image);painter.fillRect(20,20,40,60,QColor('red'));painter.end()
+            image.save(str(frames/'00.png'))
             record=dict(status='approved',reviewer='isolated-test-fixture',frames_sha256=frames_digest(frames),
                 checks={k:True for k in ('identity','continuous_motion','no_ghosts','anatomy','loop_seam')})
             (frames.parent/'visual-review.json').write_text(json.dumps(record),encoding='utf-8')

@@ -74,6 +74,8 @@
 
 第三条是硬骨头，也是本作品工程量最大的部分。
 
+> 为什么派活走界面自动化、而不是要求用户给每个软件配 MCP 后由咕嘎调用：**MCP 只负责"发现"（软件自报身份与安装路径），"指挥"仍然靠界面自动化（视觉 + UIA）**。详见 [docs/MCP与界面自动化.md](docs/MCP与界面自动化.md)。
+
 ### 3. 真机执行：不是演示动画，是真的在你电脑上点
 
 `agent/guga_executor.py`（约 1200 行）解决的是"让 AI 在真实桌面环境里可靠地操作别的 AI 软件"这一堆脏活：
@@ -129,6 +131,8 @@
 
 **但用户界面只有一个——桌宠，而且执行端也内嵌在桌宠里。** 桌宠内置监工客户端（`core/butler_cloud.py`）：对它说一句目标，云端大脑负责拆解与验收裁决；桌宠登录后自动把自己注册为执行设备（`core/local_agent.py`，进程内自动配对，无需配对码），派给本机的子任务由桌宠自己领单、自己指挥本机 AI 软件完成（复用 `agent/guga_executor.py` 全套视觉定位与取证能力）。任务台账面板（`ui/task_panel.py`）在桌宠旁展开"监工现场"。同一账号在任何设备登录，看到的是同一份台账——跨设备协同天然成立。Web 端退居为可选的远程查看后台；独立值守程序（`agent/guga_agent.py`）仅在"另一台电脑当执行机"时才需要。
 
+**它怎么认出你电脑上的 AI 软件**：发现与指挥是两件事。发现按「用户手动指定 > 软件通过咕嘎 MCP 自报 exe 绝对路径 > 声明清单 + 注册表/开始菜单/常见目录/PATH/进程探测兜底」逐级取路径；指挥一律走界面自动化（视觉 + UIA），MCP 不派单。识别成功但未登录、白屏或停在编辑页时，派单阶段会带失败码和下一步提示回报，不会假装完成。完整机制、实测耗时与"声明/实现不一致清单"见 [docs/软件识别机制.md](docs/软件识别机制.md)。
+
 ---
 
 ## 五、仓库结构
@@ -176,13 +180,15 @@ guga-competition/
 
 ### A. 下载 exe 直接跑（免装 Python，推荐评委用）
 
-GitHub Release 下载 `GUGA-Desktop-win64.zip`（约 216MB，Windows 10/11 x64）：
+到本仓库的 **Releases** 页下载最新的 `GUGA-Desktop-win64.zip`（约 347MB，解压后约 610MB，Windows 10 1809+ / 11 x64）：
 
-1. 解压到任意目录（保持 `GUGA-Desktop.exe` 与 `_internal\` 在一起）
-2. 在 `_internal\` 里放一份填好的 `ai_config.json`（模板见 `_internal\ai_config.example.json`：填对话 API 与 cloud 账号段）
-3. 双击 `GUGA-Desktop.exe`——企鹅出现在桌面，自动连云端、自动注册为执行设备，管家监工全在
+1. 解压到任意目录（只读目录也可以；保持 `GUGA-Desktop.exe` 与 `_internal\` 在一起，不要只拷 exe）
+2. 双击 `GUGA-Desktop.exe`——先过启动自检（12 项，致命/降级分级），再进首次配置向导（选平台、填 API Key、当场测通）
+3. 配置写在用户可写目录 `%LOCALAPPDATA%\GUGA\ai_config.json`（包内不带 Key；旧版放在安装目录的配置会自动迁移），填完企鹅出现在桌面
 
-> `_internal\ai_config.json` 含 API Key，请勿外传；仓库内不带任何真实凭据。
+> 未签名程序首次运行需在 SmartScreen 点「更多信息 → 仍要运行」。
+> 完整系统要求、安装步骤、各功能需要装什么、已知限制见 [INSTALL.md](INSTALL.md) 与 [USAGE.md](USAGE.md)。
+> `%LOCALAPPDATA%\GUGA\ai_config.json` 含 API Key，请勿外传；仓库内不带任何真实凭据。
 
 ### C. 源码启动桌宠
 
@@ -252,6 +258,9 @@ npm start
 - 仓库为参赛评审提供完整可复现源码：桌宠端、云端大脑、真机执行本体三端齐全
 - 咕嘎的双重身份都来自真实演进：先是游戏军师桌宠（战棋分析、语音交互），后长出管家能力（监工 + AI 指挥 AI）；两条线共用同一套桌宠外壳、语音链路与记忆系统，不是两个拼起来的产品
 - 代码 MIT；角色素材与第三方数据另有许可边界，见 `THIRD_PARTY_NOTICES.md`
+- **仓库只放源码与文档，发行包不进 Git**：安装包约 347MB，超过 GitHub 单文件 100MB 限制，统一走 Releases 附件；上传步骤见 [docs/上传到GitHub步骤.md](docs/上传到GitHub步骤.md)
+- 仓库内不含任何真实 API Key / token / 密码 / 开发机个人路径；配置模板为 `ai_config.example.json`
+- 从源码运行、发行包安装与常见问题分别见 [INSTALL.md](INSTALL.md) 与 [USAGE.md](USAGE.md)
 
 ---
 

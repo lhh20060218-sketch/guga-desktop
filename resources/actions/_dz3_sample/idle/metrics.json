@@ -1,0 +1,40 @@
+{
+  "source": "butler_idle.mp4",
+  "action": "idle",
+  "playback": "loop",
+  "source_size": [
+    768,
+    1344
+  ],
+  "target_size": [
+    384,
+    672
+  ],
+  "fps": 24,
+  "key_median": [
+    0.0,
+    255.0,
+    0.0
+  ],
+  "scale": 0.50805,
+  "span_raw": 994.0,
+  "foot_raw": [
+    1176.0,
+    385.2
+  ],
+  "baseline": 588,
+  "frames": 121,
+  "key_drift": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "alpha_cov": 0.3246,
+  "fringe_before": 0.00276,
+  "fringe_after": 0.0,
+  "loop_tail": {
+    "alpha": 0.0,
+    "rgb": 0.0
+  },
+  "edge_green_after": 0.0
+}

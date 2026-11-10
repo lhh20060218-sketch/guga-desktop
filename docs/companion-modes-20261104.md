@@ -39,7 +39,7 @@
 - `core/realtime_agent.py`、`core/agent_identity.py`：语音人格、共享默认行为、任务事实与记忆同步。
 - `ui/chat_shell.py`、`ui/pet_window.py`：唤醒入口名称、启动后预热常用对话。
 
-新设置键为`multiagent/companion_interval_seconds`，默认10秒，可设10—900秒；`multiagent/news_refresh_minutes`控制新闻缓存刷新，默认15分钟，可设5—120分钟。旧主动搭话键不再决定本轮默认行为。`app_state.assistant_contract.conversation`暴露形态、间隔、新闻缓存和单气泡按住说话能力，便于验收。
+自主搭话（空闲时自己找话说）间隔默认 4–6 小时随机，每轮重新抽取，不按整点；可用 `multiagent/proactive_idle_hours_min`、`multiagent/proactive_idle_hours_max` 调整。任务开始/暂停/中止/完成/失败/待确认播报和用户主动对话的回应不经过这条空闲路径，不受降频影响。`multiagent/news_refresh_minutes` 控制新闻缓存刷新，默认15分钟，可设5—120分钟。旧主动搭话键不再决定本轮默认行为。`app_state.assistant_contract.conversation` 暴露形态、间隔、新闻缓存和单气泡按住说话能力，便于验收。
 
 ## 验证与限制
 

@@ -33,7 +33,40 @@ import json
 import re
 import base64
 import ctypes
+import urllib.error
 import urllib.request
+
+# 云端辅助（视觉/请示）因权限或额度被拒时，只在结果里记一条，不整单失败、不静默成功。
+_AUX_NOTICES = []
+
+
+def _note_aux(text):
+    text = str(text or '').strip()
+    if text and text not in _AUX_NOTICES:
+        _AUX_NOTICES.append(text)
+    return text
+
+
+def aux_notice_text():
+    return ' / '.join(_AUX_NOTICES)
+
+
+def reset_aux_notices():
+    del _AUX_NOTICES[:]
+
+
+def _http_error_detail(exc):
+    """403 响应体里的 code / error / degraded；读不出来就返回空。"""
+    try:
+        body = json.loads(exc.read().decode('utf-8') or '{}')
+    except Exception:
+        body = {}
+    if not isinstance(body, dict):
+        body = {}
+    return (str(body.get('code') or ''),
+            str(body.get('error') or body.get('message') or ''),
+            bool(body.get('degraded')),
+            str(body.get('helper') or ''))
 
 
 def _enable_dpi_awareness():
@@ -77,6 +110,12 @@ from PIL import Image, ImageChops, ImageGrab   # noqa: E402
 pyautogui.FAILSAFE = True
 pyautogui.PAUSE = 0.4
 
+try:
+    from core import input_guard          # 每次键鼠调用前先查暂停
+    input_guard.install_pyautogui(pyautogui)
+except Exception:
+    input_guard = None
+
 _DPI_WARNED = [False]
 
 
@@ -107,7 +146,9 @@ def vis_report():
 
 EXEC_VERSION = "0.15"        # 随日志上报，便于下次"到底跑的是哪一版"一眼定位（本次事故的教训）
 
-API_BASE = os.environ.get("GUGA_CLOUD", "http://39.107.48.60:3000")   # 云端大脑地址；可用环境变量 GUGA_CLOUD 指向自建服务
+# 云端大脑地址只能由用户配置下发（桌面端启动执行器前写入 GUGA_CLOUD）；
+# 不内置任何地址：没配就不发请求，本地启发式继续，绝不借用运营方端点。
+API_BASE = os.environ.get("GUGA_CLOUD", "").rstrip("/")
 TOKEN = ""          # 由 guga_agent 配对后注入——视觉请示要用执行方身份
 CTX = None          # 当前正在执行的 {taskId, stId}——取证截图随任务上传网页证据墙
 
@@ -116,7 +157,13 @@ def _api(path, data, timeout=75):
     req = urllib.request.Request(API_BASE + path, method="POST")
     req.add_header("Content-Type", "application/json")
     req.add_header("X-Agent-Token", TOKEN)
-    with urllib.request.urlopen(req, json.dumps(data).encode(), timeout=timeout) as r:
+    # 云端 JSON POST 保留 POST 重定向，避免跳转后变 GET 回 405。
+    try:
+        from core import model_endpoint
+        opener = model_endpoint.urlopen_post
+    except Exception:
+        opener = urllib.request.urlopen
+    with opener(req, json.dumps(data).encode(), timeout=timeout) as r:
         return json.loads(r.read().decode())
 
 
@@ -210,6 +257,8 @@ def focus_window(w, app="", quiet=False):
     hwnd = _hwnd_of(w)
     if not hwnd:
         return False
+    if input_guard is not None:
+        input_guard.note_target(hwnd)     # 登记目标窗口，恢复前要复核它还在且焦点回来
     try:
         import ctypes
         u = ctypes.windll.user32
@@ -231,6 +280,8 @@ def focus_window(w, app="", quiet=False):
             try:
                 VK_MENU = 0x12
                 KEYEVENTF_KEYUP = 0x2
+                if input_guard is not None:
+                    input_guard.assert_active()   # 暂停时连切窗口的按键也不发
                 u.keybd_event(VK_MENU, 0, 0, 0)
                 time.sleep(0.03)
                 u.SetForegroundWindow(hwnd)
@@ -517,16 +568,49 @@ def _shot_window(w, zone=None, max_w=None):
     return info
 
 
+AUX_DEGRADED_HINTS = {
+    'CLOUD_NOT_ENTITLED': '云端辅助未开通，已用本地模式继续',
+    'CLOUD_QUOTA_EXCEEDED': '云端额度用完，已用本地模式继续',
+}
+
+
+def degraded_hint(code):
+    """code 只用于提示文案；不写进任务状态，也不作为失败原因。"""
+    return AUX_DEGRADED_HINTS.get(str(code or ''),
+                                  '云端辅助不可用，已用本地模式继续')
+
+
+def _note_degraded(helper, code):
+    """记一条降级日志（哪个 helper、哪个 code、什么时候），并返回给结果的提示。"""
+    stamp = time.strftime('%Y-%m-%d %H:%M:%S')
+    log('云端辅助降级：helper=%s code=%s at=%s' % (helper, code or '-', stamp))
+    return _note_aux(degraded_hint(code))
+
+
 def _vision(b64, question, timeout=75):
-    """视觉通道。失败返回 ''（调用方必须自带回退路径——视觉是增强，不是依赖）。"""
+    """视觉通道。失败返回 ''（调用方必须自带回退路径——视觉是增强，不是依赖）。
+
+    精确规则：HTTP 403 且 body.degraded === true 且 body.helper === "vision"
+    → 不重试、不判任务失败，跳过本步截图理解，走执行器本地启发式回退。
+    """
     if not b64:
         return ""
     try:
         r = _api("/api/agent/vision", {"image": b64, "question": question}, timeout)
-        return (r.get("text") or "").strip() if r.get("ok") else ""
+    except urllib.error.HTTPError as e:
+        code, _text, degraded, helper = _http_error_detail(e)
+        if e.code == 403 and degraded and helper == 'vision':
+            note = _note_degraded('vision', code)
+            log('%s；跳过本步截图理解，走本地启发式回退' % note)
+            return ""
+        log(f"视觉通道暂不可用（{e}），走位置/剪贴板兜底")
+        return ""
     except Exception as e:
         log(f"视觉通道暂不可用（{e}），走位置/剪贴板兜底")
         return ""
+    if not isinstance(r, dict):
+        return ""
+    return (r.get("text") or "").strip() if r.get("ok") else ""
 
 
 def see(w, question, timeout=75):
@@ -931,13 +1015,27 @@ def launch(app="豆包"):
             return w
     log(f"60 秒内未等到{app}窗口")
     return None
-# exe 冻结模式下 __file__ 指向 _MEI 临时解包目录（退出即删），本地证据存档要跟 exe 走
-if getattr(sys, "frozen", False):
-    _HERE = os.path.dirname(os.path.abspath(sys.executable))
-else:
-    _HERE = os.path.dirname(os.path.abspath(__file__))
-EVIDENCE_DIR = os.path.join(_HERE, "evidence")
-os.makedirs(EVIDENCE_DIR, exist_ok=True)
+def _evidence_dir():
+    """取证目录必须落在用户可写位置：评委可能把程序装在 Program Files 或只读解压目录。"""
+    try:
+        from core import guga_paths
+        return str(guga_paths.RUNTIME / "evidence")
+    except Exception:
+        pass
+    base = os.environ.get("LOCALAPPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Local")
+    return os.path.join(base, "GUGA", "runtime", "evidence")
+
+
+EVIDENCE_DIR = _evidence_dir()
+try:
+    os.makedirs(EVIDENCE_DIR, exist_ok=True)
+except OSError:
+    import tempfile
+    EVIDENCE_DIR = os.path.join(tempfile.gettempdir(), "GUGA-evidence")
+    try:
+        os.makedirs(EVIDENCE_DIR, exist_ok=True)
+    except OSError:
+        pass   # 最坏情况只影响取证截图，绝不能因此让执行器 import 失败
 
 
 def log(msg):
@@ -946,6 +1044,9 @@ def log(msg):
 
 def focus(w):
     try:
+        hwnd = _hwnd_of(w)
+        if hwnd and input_guard is not None:
+            input_guard.note_target(hwnd)
         if w.isMinimized:
             w.restore()
         w.activate()
@@ -1109,6 +1210,11 @@ def send_text(w, text, app="豆包"):
     _dpi_scale(w)        # 先按这扇窗所在屏刷新缩放系数，后面的固定像素尺寸都乘它
     pt = click_input(w, app)
     zone = _clip_zone(pt, win_rect(w)) or _bottom_strip(win_rect(w))
+    keep = ""
+    try:
+        keep = pyperclip.paste() or ""     # 发送后要还回去，见函数末尾
+    except Exception:
+        pass
     typed = False
     for attempt in range(3):
         if attempt:                       # 重试重点同一坐标（换视觉重定位只会拿到漂移坐标，越点越散）
@@ -1133,6 +1239,12 @@ def send_text(w, text, app="豆包"):
     pyautogui.press("enter")
     log(f"已发送：「{text[:50]}…」" if len(text) > 50 else f"已发送：「{text}」")
     time.sleep(2)
+    # 发完立刻还原剪贴板：否则 read_reply 的剪贴板兜底会把刚发出去的提问当成回复
+    # （2026-11-07 干净环境实测：107 字的【总目标】被当 200 字作文交付）。
+    try:
+        pyperclip.copy(keep)
+    except Exception:
+        pass
     return typed
 
 
@@ -1190,7 +1302,25 @@ def wait_answer(w, max_wait=120):
     return False
 
 
-def copy_answer(w, old_clip):
+def _flat(txt):
+    return ''.join(str(txt or '').split())
+
+
+def is_prompt_echo(got, sent):
+    """读回的内容是不是刚发出去的提问本身。
+
+    真因（2026-11-07 干净环境实测）：send_text 把提问写进了剪贴板，回答还没出来时
+    read_reply 的剪贴板兜底读到的是提问文本，于是 107 字的【总目标】被当成
+    “200 字作文”的产物交付。产物必须是对方产出的回复，而不是自己发出去的题面。"""
+    a, b = _flat(got), _flat(sent)
+    if not a or not b:
+        return False
+    if a == b:
+        return True
+    return b[:20] in a or a.startswith(b[:12])
+
+
+def copy_answer(w, old_clip, sent=""):
     """doubao-copy 路径A：悬停让工具栏浮现 → 差异定位工具栏 → 点最左复制图标 → 剪贴板校验。
     兜底：三连击选中段落 + Ctrl+C。返回取到的文本（失败返回 ''）。"""
     x, y, cw, ch = win_rect(w)
@@ -1211,6 +1341,9 @@ def copy_answer(w, old_clip):
         pyautogui.click(tx, ty)
         time.sleep(1.0)
         got = (pyperclip.paste() or "").strip()
+        if is_prompt_echo(got, sent):
+            log("剪贴板里是我们刚发出去的提问，不是回答——判为未取到回复")
+            got = ""
         if got and got != old_clip:      # 原来是 ≥20 字：把"好的""是"这种正常短答案判成失败
             log(f"剪贴板校验通过（{len(got)} 字），工具栏复制成功")
             return got
@@ -1223,6 +1356,9 @@ def copy_answer(w, old_clip):
     pyautogui.hotkey("ctrl", "c")
     time.sleep(0.8)
     got = (pyperclip.paste() or "").strip()
+    if is_prompt_echo(got, sent):
+        log("兜底复制拿到的仍是提问本身，不是回复")
+        got = ""
     if got and got != old_clip:
         log(f"兜底复制成功（{len(got)} 字）")
         return got
@@ -1271,15 +1407,19 @@ def _usable_reply(txt):
     return True
 
 
-def read_reply(w, old_clip, tag, idx, app="豆包"):
+def read_reply(w, old_clip, tag, idx, app="豆包", sent=""):
     """读 AI 软件的最新回复。视觉转写优先（不动鼠标、不怕工具栏不浮现），
-    看不清再退回悬停点复制/三连击兜底。返回文本（失败 ''）。"""
+    看不清再退回悬停点复制/三连击兜底。返回文本（失败 ''）。
+    sent 是本轮刚发出去的提问：读回内容若与它相同/以它开头，说明拿到的是提问回显，
+    不是回复——一律判未取到（这是 2026-11-07 假交付的直接原因）。"""
     txt = see(w, f'完整转写{app}对话区里最新一条 AI 回复的正文，输出纯文本/Markdown，'
                  '不要界面按钮文字，不要你自己的评论。若最新回复是在向我提问，也原样完整转写。')
-    if _usable_reply(txt):
+    if _usable_reply(txt) and not is_prompt_echo(txt, sent):
         evidence(w, f"{tag}_{idx}_vision")
         log(f"视觉转写成功（{len(txt)} 字），不动鼠标直接读到了")
         return txt
+    if _usable_reply(txt):
+        log("视觉转写拿到的是本轮提问本身（提问回显），不算回复，改走剪贴板路径")
     log("视觉转写不可用，回退剪贴板复制（悬停最新回复）")
     # 最新回复在对话区底部：悬停/兜底复制都取低处（旧版中区会悬停到旧消息）
     x, y, cw, ch = win_rect(w)
@@ -1300,7 +1440,7 @@ def read_reply(w, old_clip, tag, idx, app="豆包"):
             pyautogui.click(tx, ty)
             time.sleep(1.0)
             got = pyperclip.paste() or ""
-            if len(got) < 20 or got == old_clip:
+            if len(got) < 20 or got == old_clip or is_prompt_echo(got, sent):
                 got = ""
     except Exception as e:
         log(f"工具栏复制异常（{e}），转兜底")
@@ -1312,7 +1452,7 @@ def read_reply(w, old_clip, tag, idx, app="豆包"):
         pyautogui.hotkey("ctrl", "c")
         time.sleep(0.8)
         got = pyperclip.paste() or ""
-        if len(got) < 20 or got == old_clip:
+        if len(got) < 20 or got == old_clip or is_prompt_echo(got, sent):
             got = ""
     evidence(w, f"{tag}_{idx}_copy")
     return got
@@ -1328,11 +1468,16 @@ def ask_round(w, text, old_clip, tag, idx, app="豆包"):
     if not wait_answer(w):
         log(f"第 {idx} 轮等待超时——先让视觉读一次回复再判死（可能只是画面动画干扰了稳定判定）")
     evidence(w, f"{tag}_{idx}_ask")
-    got = read_reply(w, old_clip, tag, idx, app)
+    got = read_reply(w, old_clip, tag, idx, app, sent=text)
+    # 读回提问回显/空 = 回答还没出来：再等 4 秒重读一次（绝不把题面当产物交付）
+    if not got:
+        log(f"第 {idx} 轮没读到回复，4 秒后再读一次")
+        time.sleep(4)
+        got = read_reply(w, old_clip, tag, idx, app, sent=text)
     if got:
         log(f"已读到{app}回复（{len(got)} 字），交给大脑判读")
     else:
-        log(f"未能从{app}取到本轮回复")
+        log(f"未能从{app}取到本轮回复（已排除提问回显，不拿题面冒充产物）")
     return bool(got), got
 
 
@@ -1371,7 +1516,7 @@ def run_chain(q1=None, q2=None):
             raise RuntimeError("followup:第二轮回答超时")
 
         # ── doubao-copy ──
-        text = copy_answer(w, old_clip)
+        text = copy_answer(w, old_clip, sent=q2)
         evidence(w, f"{tag}_3_copy")
         result["steps"].append({"step": "copy:取回答案", "ok": bool(text), "chars": len(text)})
         result["copied_head"] = text[:120]

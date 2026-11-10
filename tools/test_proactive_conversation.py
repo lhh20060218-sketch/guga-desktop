@@ -25,7 +25,7 @@ def fake_panel(memory):
 class ProactiveTests(unittest.TestCase):
     def setUp(self):
         self.tmp=tempfile.TemporaryDirectory();self.memory=AgentMemoryStore(Path(self.tmp.name)/'memory.sqlite3')
-        self.panel=fake_panel(self.memory);self.proactive=ProactiveConversation(self.panel,self.memory)
+        self.panel=fake_panel(self.memory);self.proactive=ProactiveConversation(self.panel,self.memory,interval_seconds=1)
         self.proactive.started_at=time.monotonic()-300
 
     def tearDown(self):self.proactive.stop();self.tmp.cleanup()
@@ -39,21 +39,21 @@ class ProactiveTests(unittest.TestCase):
 
     def test_busy_tasks_music_or_user_speech_never_interrupt(self):
         panel=fake_panel(self.memory);panel.busy=True
-        p=ProactiveConversation(panel,self.memory);p.started_at=time.monotonic()-300
+        p=ProactiveConversation(panel,self.memory,interval_seconds=1);p.started_at=time.monotonic()-300
         self.assertIsNone(p.tick());p.stop()
         for attr in ('_generating','_playing','_user_speaking'):
             panel=fake_panel(self.memory);setattr(panel.voice,attr,True)
-            p=ProactiveConversation(panel,self.memory);p.started_at=time.monotonic()-300
+            p=ProactiveConversation(panel,self.memory,interval_seconds=1);p.started_at=time.monotonic()-300
             self.assertIsNone(p.tick());p.stop()
         panel=fake_panel(self.memory);panel.runtime.music.playing=True
-        p=ProactiveConversation(panel,self.memory);p.started_at=time.monotonic()-300
+        p=ProactiveConversation(panel,self.memory,interval_seconds=1);p.started_at=time.monotonic()-300
         self.assertIsNone(p.tick());p.stop()
 
     def test_not_enough_idle_time_or_inactive_call_does_nothing(self):
         panel=fake_panel(self.memory);panel.voice._last_activity=time.monotonic()-5
-        p=ProactiveConversation(panel,self.memory);p.started_at=time.monotonic()-300
+        p=ProactiveConversation(panel,self.memory,interval_seconds=30);p.started_at=time.monotonic()-300
         self.assertIsNone(p.tick());p.stop()
-        panel.voice.active=False;p=ProactiveConversation(panel,self.memory);self.assertIsNone(p.tick());p.stop()
+        panel.voice.active=False;p=ProactiveConversation(panel,self.memory,interval_seconds=1);self.assertIsNone(p.tick());p.stop()
 
     def test_realtime_protocol_queues_initiative_once_without_task_tools(self):
         voice=AgentRealtimeVoice();voice._thread=MagicMock();voice._thread.is_alive.return_value=True

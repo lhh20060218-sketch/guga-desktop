@@ -11,13 +11,22 @@
   - 相同 (hour, weekday, kind, detail_norm) 重复出现 >= min_count 视为习惯
 """
 import json
+import os
+import shutil
 import sqlite3
 import time
 from collections import Counter
 from contextlib import contextmanager
 from pathlib import Path
 
-DEFAULT_PATH = Path(__file__).resolve().parent.parent / 'data' / 'butler_habit.db'
+LEGACY_PATH = Path(__file__).resolve().parent.parent / 'data' / 'butler_habit.db'
+try:  # 习惯记忆属运行期数据：安装目录只读时写到用户目录
+    from core import guga_paths
+    DEFAULT_PATH = guga_paths.RUNTIME / 'data' / 'butler_habit.db'
+except Exception:  # pragma: no cover
+    DEFAULT_PATH = (Path(os.environ.get('LOCALAPPDATA') or os.environ.get('APPDATA')
+                         or os.path.expanduser('~')) / 'GUGA' / 'runtime' / 'data'
+                    / 'butler_habit.db')
 
 WEEKDAYS = ('周一', '周二', '周三', '周四', '周五', '周六', '周日')
 
@@ -38,6 +47,11 @@ class HabitProfile:
     def __init__(self, path=None, min_count=2):
         self.path = Path(path or DEFAULT_PATH)
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        if path is None and not self.path.exists() and LEGACY_PATH.is_file():
+            try:  # 旧安装目录里的习惯数据只复制一次，不删除原文件
+                shutil.copy2(str(LEGACY_PATH), str(self.path))
+            except Exception:
+                pass
         self.min_count = int(min_count)
         with self._connect() as db:
             db.executescript('''

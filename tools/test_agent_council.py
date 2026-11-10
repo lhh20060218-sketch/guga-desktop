@@ -27,7 +27,8 @@ class CouncilTests(unittest.TestCase):
     def test_two_turns_are_persisted_to_separate_members_and_shared_log(self):
         with tempfile.TemporaryDirectory() as folder:
             memory=AgentMemoryStore(Path(folder)/'memory.sqlite3')
-            worker=DiscussionWorker(memory=memory,config=dict(api_key='offline',base_url='https://example.test'))
+            worker=DiscussionWorker(memory=memory,config=dict(
+                api_key='offline',base_url='https://example.test',model='offline'))
             turns=[];done=[];worker.turn.connect(turns.append);worker.completed.connect(done.append)
             responses=[dict(choices=[dict(message=dict(content='001：先备份，再检查边界。'))]),
                        dict(choices=[dict(message=dict(content='002：同意，必须补测试；还要验证失败路径。'))])]
@@ -42,7 +43,8 @@ class CouncilTests(unittest.TestCase):
 
     def test_cancel_does_not_emit_late_completion(self):
         memory=AgentMemoryStore(Path(tempfile.mkdtemp())/'memory.sqlite3')
-        worker=DiscussionWorker(memory=memory,config=dict(api_key='offline'))
+        worker=DiscussionWorker(memory=memory,config=dict(
+            api_key='offline',base_url='https://example.test',model='offline'))
         done=[];worker.completed.connect(done.append)
         with patch('core.agent_council.requests.post',side_effect=MagicMock(status_code=500)):
             worker.start('测试取消',('001','002'));worker.cancel();self.pump(lambda:not worker.active)

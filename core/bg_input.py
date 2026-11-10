@@ -3,6 +3,11 @@ import ctypes
 import time
 from contextlib import contextmanager, nullcontext
 
+try:
+    from core import input_guard
+except Exception:                       # 单独跑此模块时禁用暂停闸，不影响原行为
+    input_guard = None
+
 
 @contextmanager
 def physical_dpi_context():
@@ -62,6 +67,9 @@ class SendInputMouse:
         self._dpi = physical_dpi_context if user32 is None else nullcontext
 
     def _send(self, flags, x=0, y=0):
+        # 每次鼠标事件发出前先查暂停：叫停后一个事件都不再发
+        if input_guard is not None:
+            input_guard.assert_active()
         packet = INPUT(type=0)
         packet.mi = MOUSEINPUT(x, y, 0, flags, 0, 0)
         self.attempted += 1

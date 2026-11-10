@@ -336,7 +336,18 @@ class DecisionEngine:
         cfg = self.config
         if not cfg.get("api_key"):
             return self._fallback(result, "missing_api_key")
-        base = cfg.get("base_url", "https://api.deepseek.com").rstrip("/")
+        base = str(cfg.get("base_url") or "").strip().rstrip("/")
+        if not base:
+            return self._fallback(result, "missing_base_url")   # 不回退任何内置服务商
+        from core import model_endpoint
+        # 用户可能把完整端点粘贴进 base_url；这里必须和主链路用同一套归一化，
+        # 否则会拼成 .../chat/completions/chat/completions 而收到 404/405。
+        fixed = model_endpoint.normalize_base_url(base)
+        if not fixed.get('ok') or not fixed.get('base'):
+            return self._fallback(result, 'invalid_endpoint')
+        base = fixed['base']
+        if not str(cfg.get("model") or "").strip():
+            return self._fallback(result, "missing_model")
         try:
             url = urlsplit(base)
         except ValueError:
@@ -361,8 +372,9 @@ class DecisionEngine:
                    "verified_rule_context": rule_context(),
                    "candidates": candidates, "limits": result["warnings"]}
         try:
-            response = requests.post(base + "/chat/completions", headers=headers,
-                json={"model": cfg.get("model", "deepseek-v4.1-flash"),
+            from core import model_endpoint
+            response = model_endpoint.post(base + "/chat/completions", headers=headers,
+                json={"model": cfg.get("model"),
                       "messages": [{"role": "system", "content": SYSTEM},
                                    {"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
                       "temperature": .15, "max_tokens": 1200,
@@ -388,7 +400,7 @@ class DecisionEngine:
             explanation = picked.get("explanation")
             if not isinstance(explanation, str) or not explanation.strip():
                 return self._fallback(result, "missing_explanation")
-            result.update(source="configured_model", model=cfg.get("model", "deepseek-v4.1-flash"),
+            result.update(source="configured_model", model=cfg.get("model"),
                           action=action, explanation=explanation[:800])
             usage = body.get("usage") or {}
             if not isinstance(usage, dict):
@@ -423,7 +435,8 @@ def decision_is_current(decision, raw):
 
 def load_config():
     try:
-        value = json.loads((ROOT / "ai_config.json").read_text(encoding="utf-8-sig"))
+        from core import guga_paths
+        value = guga_paths.read_config()
         return value if isinstance(value, dict) else {}
     except (OSError, ValueError):
         return {}

@@ -26,6 +26,14 @@ class TaskRouterTests(unittest.TestCase):
         self.assertEqual(choose_task_route('重构代码', backend='self')['executor'], 'local_agent')
         self.assertEqual(choose_task_route('打开记事本', backend='dsh')['executor'], 'dsh')
 
+    def test_multi_step_prompt_is_not_routed_as_single_step(self):
+        route = choose_task_route('打开浏览器搜索资料，然后把结果发到微信给小军')
+        self.assertEqual(route['executor'], 'local_agent')
+        self.assertEqual(route['category'], 'multi_step')
+        self.assertEqual(route['steps'], 2)
+        self.assertEqual(choose_task_route('打开记事本')['category'], 'local_task')
+        self.assertEqual(choose_task_route('给微信小军发送一段自我介绍')['category'], 'local_task')
+
     def test_local_agent_can_use_video_pipeline_and_wechat_tools(self):
         names = {item['function']['name'] for item in TOOLS}
         self.assertIn('media_workflow', names)

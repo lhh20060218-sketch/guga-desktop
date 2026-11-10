@@ -6,7 +6,7 @@
 
 ## 前置条件
 
-1. 桌面客户端已安装（路径 `C:\Users\zhipengcheng\AppData\Local\Programs\Qianwen\Qianwen.exe`），或浏览器已打开 https://tongyi.aliyun.com（实测会跳到 qianwen.aliyun.com 营销首页，需再点登录/进入对话入口）。
+1. 桌面客户端已安装（路径 `%USERPROFILE%\AppData\Local\Programs\Qianwen\Qianwen.exe`），或浏览器已打开 https://tongyi.aliyun.com（实测会跳到 qianwen.aliyun.com 营销首页，需再点登录/进入对话入口）。
 2. 已登录千问账号：支持手机号 + 短信验证码，或淘宝/支付宝 App 扫码（阿里云账号体系）。未登录则先点页面左下角【立即登录】。
 3. 网络正常，主窗口/网页对话页已打开，底部输入框可见。
 

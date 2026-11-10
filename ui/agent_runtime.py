@@ -2,6 +2,8 @@
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QApplication
 
+from core import guga_paths
+
 
 class AppRuntime:
     def __init__(self, pet, panel, store):
@@ -33,7 +35,7 @@ class AppRuntime:
         """Consume one short-lived local restart receipt; never start a voice call."""
         import json,time
         from pathlib import Path
-        path=Path(__file__).resolve().parents[1]/'runtime/personal-harness/restart.json'
+        path=guga_paths.RUNTIME/'personal-harness/restart.json'
         if not path.is_file():return
         try:
             state=json.loads(path.read_text(encoding='utf-8'))
@@ -47,6 +49,277 @@ class AppRuntime:
                 from PyQt5.QtCore import QTimer
                 QTimer.singleShot(700,restore)
         except (OSError,ValueError,TypeError):pass
+
+    # ---- JoyCode：无 API，派单+界面注入，全程以回执驱动 ----
+    def _joycode_adapter(self, workspace=None):
+        from core.adapters.joycode_adapter import JoyCodeAdapter
+        current=getattr(self,'_joycode',None)
+        wanted=str(workspace) if workspace else ''
+        if current is None or (wanted and str(current.workspace)!=wanted):
+            current=JoyCodeAdapter(workspace=workspace,journal=self.panel.agent.journal,poll_interval=.5,
+                                   computer=self.panel.agent.computer)
+            self._joycode=current
+            self._joycode_results={}
+        return current
+
+    @staticmethod
+    def _joycode_windows():
+        from core.window_inventory import list_windows
+        windows=[item for item in list_windows('joycode') if not item.get('minimized')]
+        return windows or list_windows('joycode')
+
+    def _ppt_execute(self,args):
+        """PPT 只做排版：大纲由模型给，失败时回结构化原因让模型改大纲而不是硬失败。"""
+        from core.ppt_builder import build, inspect, outline_of, PPTError
+        action=args.get('action') or 'create'
+        try:
+            if action=='inspect':
+                return dict(ok=True,**inspect(args.get('path') or args.get('output') or ''))
+            if action!='create':raise PPTError('未知操作：%s；只支持 create/inspect'%action)
+            return dict(ok=True,**build(outline_of(args.get('outline')),output=args.get('output'),
+                                        accent=args.get('accent'),template=args.get('template')))
+        except PPTError as exc:
+            return dict(ok=False,error='outline_invalid',message=str(exc),
+                        hint='按 message 修正 outline 后重试，不要原样重发')
+        except Exception as exc:
+            return dict(ok=False,error='ppt_failed',message=str(exc)[:300])
+
+    def _video_execute(self,args):
+        """零额度成片：外部成片可用就先本地后处理，不可用或失败自动回落本地合成。"""
+        import time
+        from core import video_studio
+        action=str(args.get('action') or 'create').lower()
+        try:
+            if action=='inspect':
+                return dict(ok=True,**video_studio.inspect(args.get('path') or args.get('output') or ''))
+            if action!='create':raise video_studio.VideoError('未知操作：%s；只支持 create/inspect'%action)
+            script=video_studio.script_of(args.get('script') or args.get('outline'))
+            mode=str(args.get('mode') or 'auto').lower()
+            source=str(args.get('source_path') or '').strip()
+            started=time.perf_counter();fallback=None
+            if mode!='local' and (source or mode=='external'):
+                if source:
+                    try:
+                        result=self._video_external(script,source)
+                        result.update(ok=True,route='external_postprocess',
+                                      elapsed_ms=int((time.perf_counter()-started)*1000))
+                        return result
+                    except Exception as exc:
+                        fallback=str(exc)[:300]
+                else:
+                    fallback='没有可用的外部成片 source_path（外部生成通常受额度限制）'
+            result=video_studio.synthesize(script,voice=bool(args.get('voice',True)),
+                                           output=args.get('output'),size=args.get('size') or '1280x720')
+            result.update(ok=True,route='local_synthesis',requested_mode=mode,
+                          elapsed_ms=int((time.perf_counter()-started)*1000))
+            if fallback:
+                result.update(fallback_from='external',fallback_reason=fallback)
+            return result
+        except video_studio.VideoError as exc:
+            return dict(ok=False,error='script_invalid',message=str(exc),
+                        hint='按 message 改 script（1—8镜，每镜一句 narration≤80字 + visual/headline），不要原样重发')
+        except Exception as exc:
+            return dict(ok=False,error='video_failed',message=str(exc)[:300])
+
+    def _video_external(self,script,source):
+        """外部/已有成片：核验原片 → 本地烧字幕 → 等待渲染，失败信息交给上层回落本地合成。"""
+        import time
+        from pathlib import Path
+        from core import video_studio
+        from core.media_workflow import inspect_video
+        probe=inspect_video(str(Path(source).expanduser()))
+        folder=video_studio.WORK_DIR/('external-'+time.strftime('%Y%m%d-%H%M%S'))
+        srt=video_studio.write_subtitles(script,folder/'captions.srt',total=probe['seconds'])
+        job=self.media.execute({'action':'render','path':probe['path'],'subtitles':str(srt)},
+                               self.panel.agent.cancel_event)
+        job_id=job['job_id'];deadline=time.monotonic()+60
+        while time.monotonic()<deadline:
+            state=self.media.status(job_id)
+            if state.get('state') in ('ready','failed','cancelled','interrupted'):break
+            if self.panel.agent.cancel_event.wait(.3):raise RuntimeError('外部后处理被取消')
+        else:
+            raise RuntimeError('外部后处理超过60秒未完成')
+        if state.get('state')!='ready':
+            raise RuntimeError('外部后处理失败：%s'%(state.get('error') or state.get('message') or state.get('state')))
+        result=video_studio.inspect(state['output'])
+        result.update(ok=True,subtitles=state.get('subtitles'),source_video=probe['path'],job_id=job_id)
+        return result
+
+    def _pipeline_execute(self,args):
+        """跨工具链：WorkBuddy 提示词 → JoyCode 代码 → 本地核验；失败只报卡点，不自行生成。"""
+        from core import cross_tool_pipeline
+        requirement=str(args.get('requirement') or '').strip()
+        if len(requirement)<8:
+            return dict(ok=False,error='requirement_too_short',
+                        message='requirement 太短，无法交给外部工具；请保留用户原始需求细节')
+        try:
+            return cross_tool_pipeline.run(
+                requirement,acceptance=args.get('acceptance'),product=args.get('product') or 'website',
+                timeout=max(120,min(int(args.get('timeout_seconds') or 900),1200)),
+                cancel=self.panel.agent.cancel_event,why=str(args.get('why') or '').strip())
+        except Exception as exc:
+            return dict(ok=False,error='pipeline_failed',message=str(exc)[:300])
+
+    def _local_tools_execute(self, args):
+        """本机 AI 软件清单 + 本地优先路由 + 服务器上报。"""
+        from core import local_tools
+        from core import tool_router
+        action = str(args.get('action') or 'list')
+        try:
+            if action == 'scan':
+                data = local_tools.scan(launch_probe=bool(args.get('launch_probe')))
+                verified = [t for t in data['tools'] if t.get('launch_ok')]
+                return dict(ok=True, scanned=len(data['tools']), launchable=len(verified),
+                            cached=str(local_tools.CACHE), tools=data['tools'])
+            if action == 'list':
+                entries = local_tools.inventory(args.get('query', ''), args.get('capability', ''))
+                return dict(ok=True, total=len(entries), tools=entries,
+                            note='commandable=有专用适配器可自动派单；launch_ok=真实启动核验结果')
+            if action == 'probe':
+                app_id = str(args.get('id') or '').strip()
+                spec = next((s for s in local_tools.APPS if s['id'] == app_id), None)
+                if not spec:
+                    return dict(ok=False, error='unknown_tool',
+                                message='未知软件 id；可选：' + '、'.join(s['id'] for s in local_tools.APPS))
+                result = local_tools.probe(spec)
+                return dict(ok=bool(result.get('launch_ok')), result=result,
+                            error='' if result.get('launch_ok') else result.get('reason'))
+            if action == 'route':
+                requirement = str(args.get('requirement') or '').strip()
+                if len(requirement) < 4:
+                    return dict(ok=False, error='requirement_too_short',
+                                message='route 需要用户需求原话')
+                decision = tool_router.route(requirement)
+                return dict(ok=True, decision=decision, explanation=tool_router.explain(decision))
+            if action == 'report':
+                return local_tools.report()
+            raise ValueError('未知清单操作')
+        except Exception as exc:
+            return dict(ok=False, error='local_tools_failed', message=str(exc)[:300])
+
+    def _joycode_execute(self,args):
+        import json
+        import threading
+        from core.failure_report import failure_payload
+        action=str(args.get('action') or 'status')
+        adapter=self._joycode_adapter(args.get('workspace'))
+        adapter.refresh_workspace()
+        windows=self._joycode_windows()
+        if action=='list':
+            return dict(ide=windows,pending=adapter.pending_tasks(),inbox=str(adapter.inbox),
+                        outbox=str(adapter.outbox),workspace=str(adapter.workspace))
+        if action=='status':
+            receipts=adapter.poll(mark_handled=False)
+            background=getattr(self,'_joycode_results',{})
+            return dict(ide=[dict(hwnd=item.get('hwnd'),title=item.get('title')) for item in windows],
+                workspace=str(adapter.workspace),inbox=str(adapter.inbox),outbox=str(adapter.outbox),
+                pending=adapter.pending_tasks(),
+                receipts=[dict(task_id=r.get('task_id'),status=r.get('status'),
+                               self_check=str(r.get('self_check') or '')[:300]) for r in receipts[-5:]],
+                background=[dict(task_id=key,status=(value or {}).get('status'))
+                            for key,value in list(background.items())[-5:]],
+                hint='pending非空说明IDE还没取单；用prompt发送/guga-run，再用receipt查回执')
+        if action=='dispatch':
+            goal=str(args.get('goal') or '').strip();acceptance=str(args.get('acceptance') or '').strip()
+            if not goal or not acceptance:raise ValueError('dispatch 需要 goal 和 acceptance')
+            try:
+                task=adapter.create_task(goal,acceptance,task_id=args.get('task_id'))
+            except Exception as exc:
+                if getattr(exc,'code','')=='workspace_not_found':
+                    return failure_payload(
+                        'workspace_not_found', '没找到 JoyCode 当前工程，请选择',
+                        app='JoyCode', candidates=adapter.workspace_candidates,
+                        workspace=dict(source=adapter.workspace_source,path=''))
+                raise
+            launched=None;error=None;trigger=None
+            if args.get('launch',True):
+                try:launched=adapter.open_ide()
+                except Exception as exc:error=str(exc)[:200]
+            auto=bool(args.get('auto',True))
+            if auto and not error:
+                try:trigger=adapter.trigger(task['task_id'])
+                except Exception as exc:
+                    trigger=dict(ok=False,error=getattr(exc,'code','trigger_failed'),
+                                 message=str(exc)[:300],detail=getattr(exc,'detail',{}),
+                                 manual=adapter._manual_for(getattr(exc,'code','trigger_failed'),task['task_id']))
+            seconds=max(0,min(int(args.get('seconds') or 0),30))
+            if seconds:
+                def collect(task_id=task['task_id']):
+                    receipt=adapter.wait_for_result(task_id,timeout=seconds,
+                                                    cancel=self.panel.agent.cancel_event)
+                    if receipt:self._joycode_results[task_id]=receipt
+                threading.Thread(target=collect,daemon=True).start()
+            submitted=bool((trigger or {}).get('submitted'))
+            ok=not trigger or bool(trigger.get('ok',submitted))
+            hint=(('已把 /guga-run %s 自动送进 JoyCode，用receipt查回执'%task['task_id']) if submitted
+                  else '派单只是排队，不等于完成；可用 auto=true 自动触发，或人工敲 /guga-run 后再查receipt')
+            result=dict(ok=ok,task_id=task['task_id'],
+                inbox_file=str(adapter.inbox/(task['task_id']+'.json')),
+                workspace=str(adapter.workspace),launched=launched,launch_error=error,trigger=trigger,
+                ide=[dict(hwnd=item.get('hwnd'),title=item.get('title')) for item in windows],
+                hint=hint)
+            if not ok:
+                raw_code=str((trigger or {}).get('error') or (trigger or {}).get('code') or 'not_submitted')
+                raw=(str((trigger or {}).get('message') or '') or error or
+                     str((trigger or {}).get('detail') or '') or
+                     ('JoyCode 没有确认提交，回读/回车证据见 trigger.detail'))
+                result.update(failure_payload(
+                    raw_code, raw, str((trigger or {}).get('manual') or '') or hint,
+                    app='JoyCode', hint=hint))
+            return result
+        if action=='receipt':
+            task_id=str(args.get('task_id') or '').strip()
+            if not task_id:raise ValueError('receipt 需要 task_id')
+            receipt=getattr(self,'_joycode_results',{}).get(task_id)
+            if not receipt:
+                path=adapter.outbox/(task_id+'.json')
+                if path.is_file():
+                    try:receipt=json.loads(path.read_text(encoding='utf-8-sig'))
+                    except (OSError,ValueError):receipt=None
+            if not receipt:
+                seconds=max(0,min(int(args.get('seconds') or 0),60))
+                receipt=adapter.wait_for_result(task_id,timeout=seconds,
+                                                cancel=self.panel.agent.cancel_event)
+            return dict(task_id=task_id,found=bool(receipt),receipt=receipt,
+                progress=adapter.progress(task_id),
+                hint='没有回执时先确认JoyCode在运行、是否执行了/guga-run，以及inbox任务是否还在')
+        if action=='prompt':
+            text=str(args.get('text') or '').strip()
+            if not text:raise ValueError('prompt 需要 text')
+            import time
+            started=time.perf_counter()
+            submit=bool(args.get('submit',True))
+            try:
+                from core.adapters.joycode_ui import JoyCodeUIError
+                result=adapter.trigger(text=text,submit=submit)
+            except JoyCodeUIError as exc:
+                return failure_payload(
+                    exc.code, str(exc), app='JoyCode', filled=False, submitted=False,
+                    detail=exc.detail,
+                    hint=str(exc),manual=adapter._manual_for(exc.code,args.get('task_id') or '<task_id>'),
+                    elapsed_ms=int((time.perf_counter()-started)*1000))
+            except Exception as exc:
+                return failure_payload(
+                    'trigger_failed', '%s: %s' % (type(exc).__name__, str(exc)[:200]),
+                    app='JoyCode', filled=False, submitted=False,
+                    hint=str(exc)[:300],manual=adapter._ui_layer().manual_hint(args.get('task_id') or '<task_id>'),
+                    elapsed_ms=int((time.perf_counter()-started)*1000))
+            point=result.get('point') or {}
+            history=[item for item in (result.get('history') or []) if isinstance(item,dict)]
+            rounds=[item for item in history if item.get('stage')=='focus']
+            submits_hist=[item for item in history if item.get('stage')=='submit']
+            steps=[dict(step='window',hwnd=result.get('hwnd'),launched=result.get('launched'),
+                        title=result.get('window_title')),
+                   dict(step='panel',**(result.get('panel') or {})),
+                   dict(step='locate',source=point.get('source'),x=point.get('x'),y=point.get('y')),
+                   dict(step='fill',attempts=len(rounds),verified=bool(result.get('verified'))),
+                   dict(step='submit',submits=submits_hist,submitted=result.get('submitted'))]
+            return dict(ok=bool(result.get('submitted') or not submit),filled=bool(result.get('verified')),
+                submitted=bool(result.get('submitted')),text_found=bool(result.get('verified')),
+                point=point,steps=steps,status=result.get('status'),
+                hint='已提交到JoyCode；等待IDE处理，用receipt查询回执，不要重复发送',
+                elapsed_ms=int((time.perf_counter()-started)*1000))
+        raise ValueError('未知 JoyCode 操作')
 
     def execute(self, name, args):
         if name=='screen_share':
@@ -154,8 +427,27 @@ class AppRuntime:
                     'access':self.apps.access.status(),
                     'note':'running_windows是已打开软件，authorized_apps是可启动软件；先复用已打开窗口。'}
             if args.get('action') == 'open':
-                return self.apps.open(args['name'])
+                try:
+                    return self.apps.open(args['name'])
+                except Exception as exc:
+                    # 软件名查不到是可解释的失败，必须带 code/stage/next_action 四段，
+                    # 不能以裸异常冒泡后显示成“未归类：未知异常类型”。
+                    if getattr(exc, 'code', None) != 'app_not_found':
+                        raise
+                    from core.failure_report import failure_payload
+                    return failure_payload('app_not_found',
+                        '%s: %s' % (type(exc).__name__, str(exc)))
             raise ValueError('未知软件操作')
+        if name == 'joycode':
+            return self._joycode_execute(args)
+        if name == 'ppt':
+            return self._ppt_execute(args)
+        if name == 'video':
+            return self._video_execute(args)
+        if name == 'pipeline':
+            return self._pipeline_execute(args)
+        if name == 'local_tools':
+            return self._local_tools_execute(args)
         if name == 'confirm_external':
             if self.apps.access.enabled:
                 return {'approved':True,'source':'user_enabled_full_access'}

@@ -1,0 +1,17 @@
+{
+  "action": "hello",
+  "frames": 98,
+  "canvas": [
+    458,
+    660
+  ],
+  "baseline": 620,
+  "body_height": 537.0,
+  "scale": 0.9388,
+  "offset": [
+    63,
+    30
+  ],
+  "matte": "border-key + GrabCut + unpremultiply",
+  "from_legacy": "resources\\actions\\task-motion\\hello\\frames"
+}

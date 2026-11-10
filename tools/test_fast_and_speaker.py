@@ -17,6 +17,12 @@ class FastCommandTests(unittest.TestCase):
     def setUp(self):
         patcher=patch("core.browser_launch.default_executable",return_value=None);patcher.start();self.addCleanup(patcher.stop)
 
+    def test_multi_step_request_is_not_swallowed_by_search_fast_path(self):
+        self.assertFalse(match('打开浏览器搜索资料，然后把结果发到微信给小军')['matched'])
+        self.assertFalse(match('先打开腾讯会议，查看最新录制，然后下载并上传到B站')['matched'])
+        self.assertTrue(match('打开浏览器搜索今天的天气')['matched'])
+        self.assertTrue(match('打开记事本')['matched'])
+
     def test_polite_browser_and_website_requests_use_same_local_route(self):
         for text in ('帮我打开浏览器','请帮我打开浏览器','咕嘎，帮我打开一下浏览器','打开默认浏览器吧'):
             with self.subTest(text=text):

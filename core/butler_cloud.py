@@ -15,12 +15,13 @@
 
 配置(ai_config.json 的 cloud 段, 见 ai_config.example.json):
     "cloud": {
-        "base_url": "http://39.107.48.60:3000",
-        "username": "666",
-        "password": "……",
+        "base_url": "https://<你的云端服务地址>",
+        "username": "<购买云端账号后拿到的用户名>",
+        "password": "<你自己的密码>",
         "device":   "书房台式机",
         "poll_secs": 6
     }
+没有 cloud 段或缺少任一项时，云端能力不可用；本地功能不受影响。
 """
 import io
 import json
@@ -33,8 +34,7 @@ import urllib.request
 
 from PyQt5.QtCore import QObject, QTimer, pyqtSignal
 
-DEFAULT_BASE = 'http://39.107.48.60:3000'
-_CFG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'ai_config.json')
+from core import guga_paths
 
 # ---------- 意图路由: 哪些话应该走"派单真机执行"而不是普通问答 ----------
 # 与云端 server.js 的 LOCAL_APPS 词表对齐(桌宠本地一份, 离线也能判):
@@ -57,18 +57,34 @@ def looks_like_device_task(text):
         return False
     return bool(_DEVICE_APPS_RE.search(text))
 
-# 子任务状态 → 中文播报词
+# 子任务状态 → 中文播报词（服务端口径是 error，不是 failed；failed 兼容旧数据）
 ST_WORD = {
     'pending': '排队中', 'running': '进行中', 'review': '待验收',
-    'done': '已完成', 'failed': '异常', 'paused': '已暂停',
+    'done': '已完成', 'failed': '失败', 'error': '失败',
+    'returned': '打回返工', 'paused': '已暂停', 'aborted': '已中止',
 }
+
+_FAIL_STATES = ('error', 'failed')
+
+
+def is_failed(sub):
+    """子任务是否失败：服务端用 error，历史数据可能是 failed，两者都认。"""
+    return str((sub or {}).get('status') or '') in _FAIL_STATES
+
+
+def is_aborted(sub):
+    """是否用户中止：服务端 accepted=aborted，任务上可能带 aborted 标记或中止类备注。"""
+    sub = sub or {}
+    if sub.get('aborted'):
+        return True
+    note = str(sub.get('note') or sub.get('checkResult') or sub.get('feedback') or '')
+    return note.startswith(('已中止', '用户终止', 'Stopped', '中止'))
 
 
 def load_cloud_cfg():
     """读 ai_config.json 的 cloud 段; 未配置返回 None(桌宠照常跑, 只是没有云端能力)."""
     try:
-        with io.open(_CFG_PATH, encoding='utf-8') as f:
-            cfg = json.load(f)
+        cfg = guga_paths.read_config()
         c = cfg.get('cloud') or {}
         if c.get('base_url') and c.get('username') and c.get('password'):
             c.setdefault('poll_secs', 6)
@@ -85,15 +101,91 @@ def task_overall(task):
     sts = [s.get('status', 'pending') for s in subs]
     if not sts:
         return 'pending'
-    if any(s == 'failed' for s in sts):
-        return 'failed'
+    if any(s in _FAIL_STATES or s == 'aborted' for s in sts):
+        return 'error'
     if all(s == 'done' for s in sts):
         return 'done'
-    if any(s == 'review' for s in sts):
+    if any(s in ('review', 'returned') for s in sts):
         return 'review'
     if any(s == 'running' for s in sts):
         return 'running'
     return 'pending'
+
+
+# 跨设备派单被服务端拒绝时的三种业务码 → 用户能听懂的说明
+_DISPATCH_ERRORS = {
+    'DEVICE_OFFLINE': '「{device}」那台电脑的咕嘎本体没在线——换一台在线设备，'
+                      '或者去那台电脑把咕嘎重新打开。',
+    'NO_INVENTORY': '「{device}」还没上报软件清单，我没法确认它装了哪些 AI 软件——'
+                    '在那台电脑启动一次咕嘎就会自动上报。',
+    'TOOL_MISSING': '「{device}」上没有 {missing}——换一台设备，或先在那边装好再派单。',
+    # 买软件 ≠ 买云端账号：云端服务未开通/额度用尽时必须明说，不能悄悄用运营 Key 兜底。
+    'CLOUD_NOT_ENTITLED': '云端服务未开通：当前账号没有购买云端大脑服务。'
+                          '派单、跨设备台账需要单独购买云端账号；本地对话请在「模型设置」填自己的 Key。',
+    'CLOUD_QUOTA_EXCEEDED': '云端额度已用完：请购买/续费云端服务，或等额度重置后再派单。',
+    'ADMIN_ONLY': '该操作仅管理员可用：当前账号没有权限。请用管理员账号登录，'
+                  '或让管理员在云端开通后再试。',
+    'BASEURL_REQUIRES_NEW_KEY': '服务商地址变了，旧 Key 不再被接受：请打开「模型设置」，'
+                                '按新的服务商地址重新填写 Key 后再试。',
+}
+
+_ENTITLEMENT_CODES = ('CLOUD_NOT_ENTITLED', 'CLOUD_QUOTA_EXCEEDED',
+                      'ADMIN_ONLY', 'BASEURL_REQUIRES_NEW_KEY')
+
+
+def cloud_entitlement_error(code):
+    """服务端业务码 → 可展示文案；不是权限/额度类返回空串。"""
+    return _DISPATCH_ERRORS.get(str(code or ''), '') \
+        if str(code or '') in _ENTITLEMENT_CODES else ''
+
+
+def _tool_matches(item, wanted):
+    fields = [item.get('name'), item.get('launch')] + list(item.get('aliases') or [])
+    value = str(wanted or '').casefold()
+    return any(value in str(field).casefold() for field in fields if field)
+
+
+def _devices_with_tools(inventory, tools):
+    """从设备清单里找装有全部所需软件的在线设备（TOOL_MISSING 的“哪台有”）。"""
+    names = []
+    for item in inventory or []:
+        if not item.get('online') or not item.get('tools'):
+            continue
+        available = item['tools']
+        if all(any(_tool_matches(tool, wanted) for tool in available) for wanted in tools):
+            name = str(item.get('device') or item.get('id') or '').strip()
+            if name:
+                names.append(name)
+    return names
+
+
+def dispatch_error_text(exc, device='', inventory=None):
+    """把服务端的业务错误码翻译成人话，而不是把 HTTP 400 原样抛给用户。"""
+    detail = {}
+    if isinstance(exc, urllib.error.HTTPError):
+        try:
+            detail = json.loads(exc.read().decode('utf-8') or '{}')
+        except (ValueError, OSError):
+            detail = {}
+    code = str(detail.get('code') or '')
+    name = str(detail.get('deviceName') or detail.get('deviceId') or device or '目标设备')
+    missing = detail.get('missing') or []
+    if isinstance(missing, str):
+        missing = [missing]
+    if code in _DISPATCH_ERRORS:
+        text = _DISPATCH_ERRORS[code].format(
+            device=name, missing='、'.join(str(x) for x in missing) or '所需软件')
+        if code == 'TOOL_MISSING':
+            alternatives = _devices_with_tools(inventory, [str(x) for x in missing])
+            if alternatives:
+                text += ' 现在有这些软件、可以换到：%s。' % '、'.join(alternatives[:3])
+            else:
+                text += ' 账号下暂时没有别的在线设备同时装有这些软件。'
+        return text
+    message = detail.get('error') or detail.get('message')
+    if message:
+        return str(message)
+    return '派单失败（HTTP %s）' % (getattr(exc, 'code', '?'))
 
 
 def task_progress(task):
@@ -128,18 +220,25 @@ class ButlerCloud(QObject):
     dispatch_fail = pyqtSignal(str)
     state_updated = pyqtSignal(list)    # 最新任务列表(最多30条)
     poll_error = pyqtSignal(str)        # 轮询异常(断线等, 面板提示用, 不打断桌宠)
+    _login_result = pyqtSignal(dict)    # 登录结果回主线程：QTimer 必须在主线程创建
     announce = pyqtSignal(str)          # 需要 TTS 播报的状态变化
 
     def __init__(self, parent=None):
         super().__init__(parent)
         cfg = load_cloud_cfg()
         self._cfg = cfg
-        self.base = (cfg or {}).get('base_url', DEFAULT_BASE).rstrip('/')
+        self.base = str((cfg or {}).get('base_url') or '').rstrip('/')
         self.token = ''
         self.user = ''
         self._poll = None       # QTimer
         self._last_sig = {}     # task_id -> 子任务状态摘要(播报去重)
         self._net_fail = 0      # 连续失败计数(只报一次, 恢复时报一次)
+        self._inventory = []    # 最近一次设备清单(TOOL_MISSING 时回答“哪台有”)
+        # 登录结果在后台线程拿到，但 _start_poll 里要建 QTimer：
+        # QTimer 只能在主线程创建，否则定时器不触发（2026-11-07 实测：
+        # /api/state 只在登录那一刻请求两次，之后台账再也不刷新，
+        # 失败/中止播报自然永远不触发）。AutoConnection 会排队回主线程。
+        self._login_result.connect(self._on_login)
 
     # ---------- 状态 ----------
 
@@ -166,6 +265,25 @@ class ButlerCloud(QObject):
             self._poll.stop()
             self._poll = None
 
+    def reload(self):
+        """云端账号保存后重新读取 cloud 段并重新登录；清空配置则停用。
+
+        菜单入口是常驻的，用户可能在启动后才第一次填账号；不重载的话
+        `enabled` 会一直停留在启动时的 False，派单/台账入口就永远不出现。
+        """
+        self.stop()
+        cfg = load_cloud_cfg()
+        self._cfg = cfg
+        self.base = str((cfg or {}).get('base_url') or '').rstrip('/')
+        self.token = ''
+        self.user = ''
+        self._last_sig = {}
+        self._net_fail = 0
+        if not cfg:
+            return False
+        self.login(cfg['username'], cfg['password'], cfg.get('device', '桌宠本机'))
+        return True
+
     # ---------- 底层 HTTP ----------
 
     def _call(self, path, data=None, timeout=25):
@@ -175,8 +293,17 @@ class ButlerCloud(QObject):
         if self.token:
             req.add_header('Authorization', 'Bearer ' + self.token)
         body = json.dumps(data).encode('utf-8') if data is not None else None
-        with urllib.request.urlopen(req, body, timeout=timeout) as r:
-            return json.loads(r.read().decode('utf-8'))
+        try:
+            if data is None:
+                with urllib.request.urlopen(req, body, timeout=timeout) as r:
+                    return json.loads(r.read().decode('utf-8'))
+            # 云端 JSON POST 统一保留 POST 重定向，避免 http→https/补斜杠跳转后变 GET 回 405。
+            from core import model_endpoint
+            with model_endpoint.urlopen_post(req, body, timeout=timeout) as r:
+                return json.loads(r.read().decode('utf-8'))
+        except urllib.error.HTTPError as exc:
+            # 服务端业务码（含云端未开通/额度用尽）翻译成人话，不把运营凭据兜底给本地。
+            raise RuntimeError(dispatch_error_text(exc)) from exc
 
     # ---------- 登录 ----------
 
@@ -185,7 +312,7 @@ class ButlerCloud(QObject):
             return self._call('/api/login',
                               {'username': username, 'password': password,
                                'device': device[:40]})
-        _OnceCall(job, self._on_login, self.login_fail.emit).start()
+        _OnceCall(job, self._login_result.emit, self.login_fail.emit).start()
 
     def _on_login(self, result):
         self.token = result.get('token', '')
@@ -205,16 +332,56 @@ class ButlerCloud(QObject):
 
     # ---------- 派单 ----------
 
-    def dispatch(self, goal, space='', prefer_local=True):
-        """说目标 → 云端拆解派单. prefer_local: 涉及本机软件时优先派给本机执行方."""
+    def dispatch(self, goal, space='', prefer_local=True, device='', required_tools=None):
+        """说目标 → 云端拆解派单.
+
+        prefer_local: 涉及本机软件时优先派给本机执行方。
+        device: 明确指定另一台设备时填设备名/ID；此时服务端会校验在线、清单与所需软件。
+        required_tools: 目标设备必须装有的软件名（最多 10 个）；指定 device 时自动推导。
+        """
         if not self.logged_in:
             self.dispatch_fail.emit('还没连上云端大脑，请先登录')
             return
         payload = {'goal': goal[:500], 'space': space}
         if prefer_local:
             payload['executor'] = 'local'
-        _OnceCall(lambda: self._call('/api/tasks', payload),
+        if device:
+            payload['device'] = str(device)[:60]
+            tools = [str(t).strip()[:40] for t in (required_tools or []) if str(t).strip()][:10]
+            if not tools:
+                try:
+                    from core.tool_router import required_tools as derive_tools
+                    tools = derive_tools(goal)
+                except Exception:
+                    tools = []
+            if tools:
+                payload['requiredTools'] = tools[:10]
+        _OnceCall(lambda: self._dispatch_call(payload, device),
                   self._on_dispatch, self.dispatch_fail.emit).start()
+
+    def _dispatch_call(self, payload, device=''):
+        try:
+            return self._call('/api/tasks', payload)
+        except urllib.error.HTTPError as exc:
+            raise RuntimeError(dispatch_error_text(exc, device, self._inventory))
+
+    # ---------- 跨设备 ----------
+
+    def devices_inventory(self):
+        """拉本账号的设备清单（设备名/在线/已装工具/是否上报清单）.
+
+        调用方应放在后台线程里执行，结果回主线程再弹选择框。
+        """
+        if not self.logged_in:
+            raise RuntimeError('还没连上云端大脑，请先登录')
+        result = self._call('/api/devices/inventory')
+        devices = result.get('devices') if isinstance(result, dict) else []
+        devices = devices if isinstance(devices, list) else []
+        self._inventory = devices
+        return {'devices': devices,
+                'total': len(devices),
+                'online': sum(1 for d in devices if d.get('online')),
+                'withInventory': sum(1 for d in devices if d.get('hasInventory'))}
 
     def _on_dispatch(self, result):
         task = result.get('task') or {}
@@ -285,9 +452,18 @@ class ButlerCloud(QObject):
                              % (task.get('goal', '任务'), len(subs)))
         for s in subs:
             sid, st = s.get('id'), s.get('status')
-            if st in ('failed', 'review') and old_map.get(sid) != st:
-                if st == 'failed':
-                    return '少爷，「%s」三次交付仍不达标，我如实上报，需要您亲自看一眼。' % s.get('name', '子任务')
+            if (st in _FAIL_STATES or st == 'aborted') and old_map.get(sid) != st:
+                name = s.get('name', '子任务')
+                why = str(s.get('note') or s.get('checkResult') or '').strip()
+                for prefix in ('已中止：', '已中止:', '执行失败：', '执行失败:', '失败：', '失败:'):
+                    if why.startswith(prefix):
+                        why = why[len(prefix):]
+                if st == 'aborted' or is_aborted(s):
+                    return '少爷，「%s」已中止：%s。' % (name, (why or '用户终止了本轮操作')[:40])
+                return '少爷，「%s」执行失败：%s。' % (name, (why or '三次交付仍不达标')[:40])
+        for s in subs:
+            sid, st = s.get('id'), s.get('status')
+            if st in ('review', 'returned') and old_map.get(sid) != st:
                 return '少爷，「%s」交付了，我正在按验收标准核对。' % s.get('name', '子任务')
         # 兜底: 总状态变了才播
         before = [old_map.get(s.get('id')) for s in subs]

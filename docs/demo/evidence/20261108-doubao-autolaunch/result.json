@@ -1,0 +1,184 @@
+{
+ "ok": true,
+ "evidence": {
+  "dir": "D:\\guga-regress-0519\\home\\runtime\\doubao_evidence\\doubao-20261108060838-6443\\attempt1",
+  "window": {
+   "hwnd": 4851096,
+   "pid": 22308,
+   "title": "豆包",
+   "class": "Chrome_WidgetWin_1",
+   "rect": [
+    164,
+    0,
+    1669,
+    899
+   ],
+   "visible": true,
+   "iconic": false
+  },
+  "page_sha256": "1e71036a223d4dfc46422cb30b2987693b78fa6c018948a7049975fcf8be2c66",
+  "capture_sha256": "6f5ece6b43ece6793b1bf1b4b66b4e2cd38f9d0eb8142b2a38297c2d51d06e70",
+  "capture_chars": 117,
+  "prompt_echo_found": false,
+  "copied_from": "answer_button",
+  "visible_in_page": {
+   "ratio": 0.957,
+   "windows": 9
+  },
+  "local_model_used": false,
+  "origin": "doubao_desktop_window",
+  "screenshots": [
+   "01_window.png",
+   "02_after_recover.png",
+   "04_after_new_chat.png",
+   "05_anchor_fallback.png",
+   "06_before_send.png",
+   "07_sent_1.png",
+   "07_sent_2.png",
+   "09_before_copy.png",
+   "poll.png"
+  ]
+ },
+ "timeline": [
+  {
+   "ts": "2026-11-08T06:08:39.272",
+   "step": "open_window",
+   "window": {
+    "hwnd": 4851096,
+    "pid": 22308,
+    "title": "豆包",
+    "class": "Chrome_WidgetWin_1",
+    "rect": [
+     164,
+     0,
+     1669,
+     899
+    ],
+    "visible": true,
+    "iconic": false
+   }
+  },
+  {
+   "ts": "2026-11-08T06:08:39.624",
+   "step": "focus",
+   "hwnd": 4851096,
+   "focused": true,
+   "rect": [
+    164,
+    0,
+    1669,
+    899
+   ]
+  },
+  {
+   "ts": "2026-11-08T06:08:42.015",
+   "step": "capture_window",
+   "chars": 0
+  },
+  {
+   "ts": "2026-11-08T06:08:42.018",
+   "step": "blank_detected"
+  },
+  {
+   "ts": "2026-11-08T06:08:46.034",
+   "step": "blank_recovered"
+  },
+  {
+   "ts": "2026-11-08T06:08:49.902",
+   "step": "new_chat",
+   "chars": 149
+  },
+  {
+   "ts": "2026-11-08T06:08:50.844",
+   "step": "input_anchor",
+   "anchor": "geometry_bottom",
+   "at": [
+    0.55,
+    0.87
+   ]
+  },
+  {
+   "ts": "2026-11-08T06:08:52.244",
+   "step": "inject",
+   "attempt": 1,
+   "equal": true,
+   "length": 14,
+   "sha": "44c380d761e592b2"
+  },
+  {
+   "ts": "2026-11-08T06:08:55.010",
+   "step": "send",
+   "attempt": 1,
+   "composer_cleared": true,
+   "generating": false,
+   "baseline": 138,
+   "chars": 127,
+   "grew": -11
+  },
+  {
+   "ts": "2026-11-08T06:08:57.781",
+   "step": "send",
+   "attempt": 2,
+   "composer_cleared": true,
+   "generating": false,
+   "baseline": 138,
+   "chars": 173,
+   "grew": 35
+  },
+  {
+   "ts": "2026-11-08T06:08:59.557",
+   "step": "poll",
+   "chars": 299,
+   "generating": false
+  },
+  {
+   "ts": "2026-11-08T06:09:01.498",
+   "step": "poll",
+   "chars": 343,
+   "generating": false
+  },
+  {
+   "ts": "2026-11-08T06:09:03.174",
+   "step": "poll",
+   "chars": 343,
+   "generating": false
+  },
+  {
+   "ts": "2026-11-08T06:09:04.888",
+   "step": "poll",
+   "chars": 343,
+   "generating": false
+  },
+  {
+   "ts": "2026-11-08T06:09:06.585",
+   "step": "poll",
+   "chars": 343,
+   "generating": false
+  },
+  {
+   "ts": "2026-11-08T06:09:08.270",
+   "step": "poll",
+   "chars": 343,
+   "generating": false
+  },
+  {
+   "ts": "2026-11-08T06:09:10.312",
+   "step": "copy_button",
+   "dx": 0.0,
+   "length": 124
+  },
+  {
+   "ts": "2026-11-08T06:09:10.319",
+   "step": "capture_verify",
+   "method": "answer_button",
+   "chars": 117,
+   "ratio": 0.957,
+   "windows": 9,
+   "visible_in_page": true,
+   "sha": "6f5ece6b43ece679"
+  }
+ ],
+ "text": "1. 桌面自动化可以替代重复、机械的电脑操作，减少人工反复点击录入带来的时间消耗。\n2. 它能够稳定一致地执行流程，规避人为疏忽造成的操作失误，提升任务准确率。\n3. 把人力从低价值事务中释放出来，让员工聚焦在分析、决策这类更有创造性的工作上。",
+ "provenance": "clipboard:6f5ece6b43ece6793b1bf1b4b66b4e2cd38f9d0eb8142b2a38297c2d51d06e70",
+ "prompt": "写三句话说明桌面自动化的价值"
+}

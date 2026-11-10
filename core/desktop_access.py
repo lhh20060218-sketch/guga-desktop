@@ -13,7 +13,8 @@ import time
 import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
-STATE = ROOT/'runtime/chat/local_access.json'
+from core import guga_paths
+STATE = guga_paths.RUNTIME/'chat/local_access.json'
 
 
 def redact(text):
@@ -78,7 +79,7 @@ class DesktopAccess:
                 json.loads(content)
             backup=None
             if path.exists():
-                backup=ROOT/'runtime/self-updates'/uuid.uuid4().hex/path.name
+                backup=guga_paths.RUNTIME/'self-updates'/uuid.uuid4().hex/path.name
                 backup.parent.mkdir(parents=True,exist_ok=True)
                 shutil.copy2(path,backup)
             if cancel.is_set():
@@ -102,7 +103,7 @@ class DesktopAccess:
             raise ValueError('命令预算需要1—300秒')
         cwd=Path(cwd).expanduser().resolve(strict=True)
         if not cwd.is_dir():raise ValueError('工作目录不是文件夹')
-        output_root=ROOT/'runtime/agent-jobs'
+        output_root=guga_paths.RUNTIME/'agent-jobs'
         output_root.mkdir(parents=True,exist_ok=True)
         job=None;proc=None
         with tempfile.TemporaryDirectory(dir=str(output_root),prefix='job-') as folder:

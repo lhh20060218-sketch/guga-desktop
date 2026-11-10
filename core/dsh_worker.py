@@ -12,6 +12,8 @@ import uuid
 
 from PyQt5.QtCore import QObject, pyqtSignal
 
+from core import guga_paths
+
 ROOT=Path(__file__).resolve().parents[1]
 
 # Background depth layer profile: the stock headless template plus LingShu
@@ -158,7 +160,7 @@ class DshManager(QObject):
 
     def _overlay(self,job_id):
         # Process-local overlay: no edits to the user's global DSH/Web profile.
-        folder=ROOT/'runtime/personal-harness';folder.mkdir(parents=True,exist_ok=True)
+        folder=guga_paths.RUNTIME/'personal-harness';folder.mkdir(parents=True,exist_ok=True)
         frozen=getattr(sys,'frozen',False)
         args=['--guga-mcp','--dsh-tools'] if frozen else [str(ROOT/'tools/guga_mcp_server.py'),'--dsh-tools']
         from core.mcp_contract import pipe_name
@@ -222,7 +224,8 @@ class DshManager(QObject):
             # user's DSH store can make an otherwise valid Guga task fail AUTH.
             env=dict(os.environ)
             try:
-                cfg=json.loads((ROOT/'ai_config.json').read_text(encoding='utf-8-sig'))
+                from core import guga_paths
+                cfg=guga_paths.read_config()
                 if cfg.get('api_key'):env['OPENCODE_GO_API_KEY']=str(cfg['api_key'])
             except (OSError,ValueError,TypeError):
                 pass
@@ -233,7 +236,7 @@ class DshManager(QObject):
             if not env.get('MDCG_STATE_ROOT') and not env.get('MDCG_DATA_ROOT'):
                 env['MDCG_STATE_ROOT']=str(Path.home()/'.dsh'/'.dsh-memory')
             if getattr(sys,'frozen',False):
-                vendor=ROOT/'vendor';home=ROOT/'runtime/dsh-home';template=vendor/'dsh-home'
+                vendor=ROOT/'vendor';home=guga_paths.RUNTIME/'dsh-home';template=vendor/'dsh-home'
                 if not home.exists():shutil.copytree(template,home)
                 env.update(DSH_HOME=str(home))
                 env['PATH']=str(vendor)+os.pathsep+env.get('PATH','')

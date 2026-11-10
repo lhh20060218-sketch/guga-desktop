@@ -32,7 +32,10 @@ class UIABackend:
                 break
             from System.Windows.Automation import (AutomationElement,TreeScope,Condition,TreeWalker,
                 InvokePattern,SelectionItemPattern,ValuePattern,TogglePattern,ExpandCollapsePattern,ScrollPattern,
-                CacheRequest,Automation,ControlType,PropertyCondition,AndCondition)
+                TextPattern,CacheRequest,Automation,ControlType,PropertyCondition,AndCondition)
+            from System.Windows import Point
+            self.Point=Point
+            self.TextPattern=TextPattern
             self.IntPtr=IntPtr;self.AutomationElement=AutomationElement;self.TreeScope=TreeScope;self.Condition=Condition
             self.Patterns=dict(invoke=InvokePattern,select=SelectionItemPattern,set_value=ValuePattern,
                                toggle=TogglePattern,expand=ExpandCollapsePattern,collapse=ExpandCollapsePattern,
@@ -42,7 +45,8 @@ class UIABackend:
             self.cache=CacheRequest();self.cache.TreeScope=TreeScope.Element
             self.cache.TreeFilter=Automation.ControlViewCondition
             for prop in ('Name','AutomationId','ControlType','ClassName','IsEnabled','IsOffscreen',
-                         'BoundingRectangle','IsPassword','RuntimeId','HasKeyboardFocus'):
+                         'BoundingRectangle','IsPassword','RuntimeId','HasKeyboardFocus',
+                         'IsKeyboardFocusable','IsTextPatternAvailable'):
                 self.cache.Add(getattr(AutomationElement,prop+'Property'))
             self.availability={}
             pattern_names=dict(invoke='Invoke',select='SelectionItem',set_value='Value',toggle='Toggle',expand='ExpandCollapse',collapse='ExpandCollapse',scroll='Scroll')
@@ -69,10 +73,12 @@ class UIABackend:
             runtime=list(element.GetCachedPropertyValue(self.AutomationElement.RuntimeIdProperty)) if cached else list(element.GetRuntimeId())
             identity='|'.join(str(x) for x in runtime)
             ref=hashlib.sha256((str(hwnd)+'|'+identity).encode()).hexdigest()[:20]
-            item=dict(ref=ref,name=str(c.Name or '')[:200],id=str(c.AutomationId or '')[:200],
+            item=dict(ref=ref,runtime_id=runtime,name=str(c.Name or '')[:200],id=str(c.AutomationId or '')[:200],
                       type=str(c.ControlType.ProgrammaticName or '').replace('ControlType.',''),
                       class_name=str(c.ClassName or '')[:100],enabled=bool(c.IsEnabled),
                       offscreen=bool(c.IsOffscreen),password=bool(c.IsPassword),focused=bool(c.HasKeyboardFocus),rect=self._rect(element,cached),
+                      keyboard_focusable=bool(c.IsKeyboardFocusable),
+                      text_pattern=bool(element.GetCachedPropertyValue(self.AutomationElement.IsTextPatternAvailableProperty) if cached else element.GetCurrentPropertyValue(self.AutomationElement.IsTextPatternAvailableProperty)),
                       patterns=[str(kind.__name__) for name,kind in self.Patterns.items()
                         if bool(element.GetCachedPropertyValue(self.availability[name]) if cached else element.GetCurrentPropertyValue(self.availability[name]))])
             if not c.IsPassword:
@@ -108,6 +114,38 @@ class UIABackend:
             return dict(hwnd=hwnd,revision=revision,elements=items,truncated=bool(queue),
                         elapsed_seconds=round(time.monotonic()-now,3),
                         hint='后续用 ref 调用 uia，避免重复遍历；状态变化后重新 snapshot')
+
+    def scroll_state(self,hwnd,limit=400,time_budget=1.2):
+        """读滚动容器 ScrollPattern 的垂直位置（只读，不发操作）。
+
+        豆包是 Chromium 自绘，滚动条不一定在 ControlView 里；拿不到就返回
+        ``available=False``，由调用方退化为“视口文本哈希稳定”判定，绝不猜。
+        """
+        hwnd=int(hwnd);started=time.monotonic();queue=deque([self._root(hwnd)]);seen=0;best=None
+        while queue and seen<max(1,int(limit)) and time.monotonic()-started<time_budget:
+            element=queue.popleft();seen+=1
+            try:kind=str(element.Current.ControlType.ProgrammaticName).replace('ControlType.','')
+            except Exception:kind=''
+            if kind in ('Document','Pane','List','Group','Custom','ScrollBar'):
+                try:
+                    if bool(element.GetCurrentPropertyValue(self.AutomationElement.IsScrollPatternAvailableProperty)):
+                        pattern=element.GetCurrentPattern(self.Patterns['scroll'].Pattern).Current
+                        percent=float(pattern.VerticalScrollPercent);view=float(pattern.VerticalViewSize)
+                        if percent>=0:
+                            item=dict(container=kind,percent=round(percent,2),view=round(view,2))
+                            if best is None or item['view']<best['view']:best=item
+                except Exception:pass
+            try:child=self.walker.GetFirstChild(element)
+            except Exception:child=None
+            count=0
+            while child is not None and count<300 and time.monotonic()-started<time_budget:
+                queue.append(child);count+=1
+                try:child=self.walker.GetNextSibling(child)
+                except Exception:break
+        if best is None:return dict(hwnd=hwnd,available=False,nodes=seen)
+        best.update(hwnd=hwnd,available=True,nodes=seen,
+                    at_bottom=bool(best['percent']>=99.0))
+        return best
 
     def _find(self,hwnd,name='',automation_id='',control_type='',root=None,include_offscreen=False):
         conditions=[]
@@ -168,6 +206,119 @@ class UIABackend:
                 if named:inputs=named
             if len(inputs)!=1:raise RuntimeError('页面输入框不唯一或不存在，请说具体名称，未发送操作')
             return dict(hwnd=int(hwnd),element=inputs[0][1])
+
+    def first_edit(self,hwnd,timeout=3.0):
+        """取窗口内第一个可见 Edit 控件；Chromium/Electron 的富文本框也暴露成 Edit。
+
+        不用 `_find` 的 FindAll：Electron 整棵可访问树物化极慢（实测 160 秒以上），
+        FindFirst 只要 2~3 秒，足够定位 composer，也不会误把整页正文当输入框。
+        """
+        hwnd=int(hwnd);deadline=time.monotonic()+max(0.0,float(timeout))
+        with self.lock:
+            kind=getattr(self.ControlType,'Edit',None)
+            if kind is None:raise RuntimeError('UIA 不支持 Edit 控件类型')
+            condition=self.PropertyCondition(self.AutomationElement.ControlTypeProperty,kind)
+            while True:
+                root=self._root(hwnd)
+                element=root.FindFirst(self.TreeScope.Descendants,condition)
+                if element is None:raise RuntimeError('窗口里没有可编辑控件')
+                item,_=self._entry(element,hwnd)
+                if item and not item.get('offscreen'):
+                    self.elements[item['ref']]=(element,time.monotonic(),hwnd)
+                    return dict(hwnd=hwnd,ref=item['ref'],element=item,rect=item.get('rect'))
+                if time.monotonic()>=deadline:raise RuntimeError('输入框当前不可见')
+                time.sleep(.2)
+
+    def value(self,hwnd,ref):
+        """按 ref 读回输入框当前值（缓存引用失效会抛错，调用方自行重新定位）。"""
+        with self.lock:
+            _,item=self._resolve(int(hwnd),ref=ref)
+            return str(item.get('value') or '')
+
+    #: 真实豆包（20261110 实测）的输入框是 Group + 「tiptap ProseMirror」，
+    #: 不是 Edit、没有 ValuePattern，但有 TextPattern 且 IsKeyboardFocusable=True。
+    COMPOSER_CLASS_HINTS = ('prosemirror', 'tiptap', 'richedit', 'editor')
+    COMPOSER_TYPES = ('Group', 'Document', 'Custom', 'Pane', 'Edit')
+
+    def composer(self,hwnd,time_budget=4.0):
+        """按真实控件特征定位输入框：类名含 ProseMirror/tiptap + 可获得键盘焦点 + 有 TextPattern。
+
+        不要求 ControlType 是 Edit，也不要求 ValuePattern；只认窗口下半区、
+        宽度不小于窗口 1/4 的最大可编辑块，避免把整页 Document 或占位 Text 当输入框。
+        """
+        hwnd=int(hwnd)
+        snap=self.snapshot(hwnd,limit=500,time_budget=time_budget)
+        try:
+            r=self._root(hwnd).Current.BoundingRectangle
+            win=dict(left=float(r.Left),top=float(r.Top),right=float(r.Right),bottom=float(r.Bottom))
+        except Exception:
+            win={}
+        height=max(1.0,win.get('bottom',0)-win.get('top',0))
+        width=max(1.0,win.get('right',0)-win.get('left',0))
+        rows=[]
+        for item in snap['elements']:
+            cls=str(item.get('class_name') or '').lower()
+            if not any(hint in cls for hint in self.COMPOSER_CLASS_HINTS):continue
+            if 'trailingbreak' in cls:continue
+            if item.get('type') not in self.COMPOSER_TYPES:continue
+            if not item.get('keyboard_focusable') or not item.get('text_pattern'):continue
+            rect=item.get('rect') or {}
+            box_w=max(0.0,rect.get('right',0)-rect.get('left',0))
+            box_h=max(0.0,rect.get('bottom',0)-rect.get('top',0))
+            if box_w<max(120.0,width*0.25) or box_h<=0:continue
+            if win and rect.get('top',0)<win['top']+height*0.45:continue
+            rows.append(item)
+        rows.sort(key=lambda it:-((it['rect']['right']-it['rect']['left'])*(it['rect']['bottom']-it['rect']['top'])))
+        if not rows:raise RuntimeError('没有找到可编辑的富文本输入框（Group/ProseMirror），未发送操作')
+        return dict(hwnd=hwnd,element=rows[0],candidates=rows,source='composer_prosemirror')
+
+    def text_of(self,hwnd,ref,limit=4000):
+        """按同一个 ref 回读该控件自身文本（TextPattern 优先，其次 ValuePattern）。
+
+        只读这个控件，不回退到整页 Document，也不读前台窗口。
+        """
+        with self.lock:
+            element,item=self._resolve(int(hwnd),ref=ref)
+            if item.get('text_pattern'):
+                try:
+                    pattern=element.GetCurrentPattern(self.TextPattern.Pattern)
+                    value=str(pattern.DocumentRange.GetText(max(1,min(int(limit),12000))) or '')
+                    return dict(hwnd=int(hwnd),ref=ref,text=value,chars=len(value),
+                                source='element_textpattern')
+                except Exception:
+                    pass
+            if 'ValuePattern' in (item.get('patterns') or []):
+                value=str(item.get('value') or '')
+                return dict(hwnd=int(hwnd),ref=ref,text=value,chars=len(value),
+                            source='element_valuepattern')
+            raise RuntimeError('输入框控件没有可读文本（既无 TextPattern 也无 ValuePattern），未发送操作')
+
+    def from_point(self,hwnd,x,y):
+        """真实读取屏幕坐标下的控件（自检/AutomationElement.FromPoint 实测用）。"""
+        with self.lock:
+            element=self.AutomationElement.FromPoint(self.Point(float(x),float(y)))
+            if element is None:
+                raise RuntimeError('该坐标没有可访问的 UIA 控件')
+            item,_=self._entry(element,0)
+            if not item:
+                raise RuntimeError('该坐标的 UIA 控件读取失败')
+            return dict(point=[int(x),int(y)],element=item,source='AutomationElement.FromPoint')
+
+    def text(self,hwnd,limit=6000):
+        """真实读取页面/文档文本（TextPattern）；读不到就抛错，不伪造空串。"""
+        hwnd=int(hwnd)
+        with self.lock:
+            documents=self._find(hwnd,control_type='Document')
+            if not documents:
+                raise RuntimeError('窗口里没有提供 TextPattern 的文档')
+            element=documents[0][0]
+            try:
+                pattern=element.GetCurrentPattern(self.TextPattern.Pattern)
+                value=str(pattern.DocumentRange.GetText(max(1,min(int(limit),12000))) or '')
+            except Exception as exc:
+                raise RuntimeError('TextPattern 读取失败: '+type(exc).__name__) from None
+            return dict(hwnd=hwnd,text=value,chars=len(value),source='uia_textpattern')
+
 
     def read(self,hwnd,**selector):
         with self.lock:

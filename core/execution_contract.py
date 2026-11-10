@@ -14,6 +14,31 @@ QUESTION_WORDS=("如何","怎么","为什么","解释一下","有什么区别","
                 "是不是","有没有","吗","呢","？","?")
 REQUEST_WORDS=("帮我","给我","替我","麻烦","请你","我要你","现在开始","执行一下","跑一下",
                "去把","去打开","去下载","去执行")
+# Clauses that name a concrete side effect. Used only to tell a multi-step job
+# from a one-shot action; the same words may also appear inside one clause.
+COMPOSITE_ACTIONS=ACTION_WORDS+("发给","发到","发送到","发消息","发一段","发一句","上传到","导出","抽取",
+                                "转写","渲染","投稿","下载到","解压","压缩","整理成","批量")
+_SEQUENCE_SPLIT=re.compile(r'[，,。；;、]|然后|接着|之后|随后|最后|紧接着|并且|再(?![来说次])|并(?![且非])')
+
+
+def execution_steps(prompt):
+    """Count ordered action clauses; a short prompt can still be a real job."""
+    text=str(prompt or '').strip()
+    if not text:return 0
+    count=0
+    for clause in _SEQUENCE_SPLIT.split(text):
+        clause=str(clause or '').strip()
+        if clause and any(word in clause for word in COMPOSITE_ACTIONS):count+=1
+    return count
+
+
+def is_composite(prompt):
+    """True when the request needs at least two dependent actions.
+
+    The single-step fast path must not swallow these: they need planning,
+    sequential execution and result-driven adjustment, not a 20-second budget.
+    """
+    return execution_steps(prompt)>=2
 
 
 def _question_like(text):
@@ -22,6 +47,12 @@ def _question_like(text):
 
 def requires_execution(prompt):
     text=str(prompt or "").lower().strip()
+    # 用户点名外部工具（“用豆包生成…”）就是执行请求：动作词表里没有“生成/写”，
+    # 只看动作词会把这类指令误判成聊天，退化成咕嘎自己代写。
+    try:
+        from core import tool_mandate
+        if tool_mandate.detect(prompt):return True
+    except Exception:pass
     if not any(word in text for word in ACTION_WORDS):return False
     value=re.sub(r'^(?:小?咕嘎[，,\s]*)?(?:(?:请你?|麻烦你?|帮我|给我|替我|我要你|你能不能|你能|你可以|你可不可以|能不能|能否|可不可以|可以)[，,\s]*)*','',text)
     if re.match(r'^(?:解释|讲解|告诉我|教我).*(?:如何|怎么|为什么|是什么|什么意思)',value):return False
@@ -44,6 +75,7 @@ class ExecutionLedger:
         self.failures={}
         self.completed=[]
         self.evidence_count=0
+        self.input_sent=0        # 真正发出过键鼠输入动作的次数（不含只观察）
 
     @staticmethod
     def _ok(value):
@@ -89,6 +121,7 @@ class ExecutionLedger:
                 for item in self.pending:
                     if item.get('category')=='application_window':item['hwnd']=args.get('hwnd')
             if action in INPUT_ACTIONS and ok:
+                self.input_sent+=1
                 verification=result.get('verification') or {}
                 if (action=='uia' and result.get('verified') is True and verification.get('matched') is True
                         and verification.get('kind') in ('value_equals','keyboard_focus')):

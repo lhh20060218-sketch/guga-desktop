@@ -20,11 +20,63 @@ import requests
 from PyQt5.QtCore import QObject, pyqtSignal
 
 from core.bg_knowledge import build_context
+from core import guga_paths
+from core.agent_task import ledger_note, ledger_snapshot
+from core.reply_guard import ledger_disclosure, sanitize
 
-_CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'ai_config.json')
 
 EXPRESSIONS = ("normal", "happy", "sleepy", "surprised", "sad", "playful")
 ACTIONS = ("none", "bounce", "shake", "point", "peek", "tsundere")
+
+# 服务商识别只用于界面展示，绝不参与请求地址计算：没填 base_url 就不发请求。
+_PROVIDER_HOSTS = {
+    'api.deepseek.com': 'DeepSeek 官方',
+    'open.bigmodel.cn': '智谱 GLM',
+    'dashscope.aliyuncs.com': '通义千问',
+    'maas.qianwenaiapi.com': '千问 MaaS 网关',
+    'opencode.ai': 'OpenCode',
+}
+
+
+def provider_label(cfg=None) -> str:
+    """当前服务商显示名；没配地址时明确写“未选择服务商”。"""
+    cfg = cfg if isinstance(cfg, dict) else guga_paths.read_config()
+    base = str(cfg.get('base_url') or '').strip()
+    if not base:
+        return '未选择服务商'
+    host = urlsplit(base).hostname or ''
+    custom = str(cfg.get('provider') or '').strip()
+    return custom or _PROVIDER_HOSTS.get(host, host or base)
+
+
+def endpoint_label(cfg=None) -> str:
+    cfg = cfg if isinstance(cfg, dict) else guga_paths.read_config()
+    return str(cfg.get('base_url') or '').strip() or '未填写接口地址'
+
+
+def model_config_error(cfg=None) -> str:
+    """返回可直接展示给用户的中文原因；空串表示三项都齐、可以发请求。"""
+    cfg = cfg if isinstance(cfg, dict) else guga_paths.read_config()
+    key = str(cfg.get('api_key') or '').strip()
+    base = str(cfg.get('base_url') or '').strip()
+    model = str(cfg.get('model') or '').strip()
+    if not key:
+        return ('未配置模型：没有 API Key。对话、完整对话、截图分析不可用；'
+                '请点「模型设置」自己填写。接入 MCP 只负责发现软件路径，不等于模型可用。')
+    if not base.startswith('http'):
+        return ('未选择服务商：已填 API Key，但没有接口地址（base_url）。'
+                '咕嘎不会把 Key 发到任何默认服务商，请到「模型设置」选择平台或填写地址。')
+    if not model:
+        return '未选择模型名：请到「模型设置」填写模型 id（例如 deepseek-chat）。'
+    return ''
+
+
+def require_model_config(cfg=None) -> dict:
+    """模型请求前的统一校验；不通过时抛 ValueError，文案可直接显示。"""
+    problem = model_config_error(cfg)
+    if problem:
+        raise ValueError(problem)
+    return cfg if isinstance(cfg, dict) else guga_paths.read_config()
 
 SYSTEM_PROMPT = """你是"咕嘎"——一只住在冰面上的娇憨调皮小企鹅桌宠。
 
@@ -127,7 +179,14 @@ class AIChatWorker(threading.Thread):
                 messages.extend(self._history)
                 messages.append({"role": "user", "content": self._user_msg})
 
-                base_url = self._cfg.get("base_url", "https://api.deepseek.com").rstrip('/')
+                problem = model_config_error(self._cfg)
+                if problem:
+                    # 没有服务商/模型就停在这里，绝不回退到任何内置端点。
+                    self._result_cb(ok=False, error=problem)
+                    return
+                from core import model_endpoint
+                base_url = model_endpoint.base_of(self._cfg.get('base_url')) or \
+                    str(self._cfg.get('base_url')).strip().rstrip('/')
                 headers = {
                     "Content-Type": "application/json",
                     "Authorization": f"Bearer {self._cfg.get('api_key', '')}",
@@ -138,11 +197,11 @@ class AIChatWorker(threading.Thread):
                     # Go needs a client identity and a stable ID across conversation turns.
                     headers['User-Agent'] = 'GugaDesktopPet/1.0'
                     headers['x-opencode-session'] = self._session_id
-                resp = requests.post(
+                resp = model_endpoint.post(
                     base_url + "/chat/completions",
                     headers=headers,
                     json={
-                        "model": self._cfg.get("model", "deepseek-v4-flash"),
+                        "model": self._cfg.get("model"),
                         "messages": messages,
                         "temperature": self._cfg.get("temperature", 0.85),
                         "max_tokens": self._cfg.get("max_tokens", 800),
@@ -151,10 +210,21 @@ class AIChatWorker(threading.Thread):
                     },
                     timeout=self._cfg.get("request_timeout", 60),
                 )
-                data = resp.json()
+                try:
+                    data = resp.json()
+                except Exception:
+                    data = {'_raw': (resp.text or '')[:200]}
                 if resp.status_code != 200:
-                    err = data.get("error", {}).get("message", str(resp.status_code))
-                    self._result_cb(ok=False, error=f"API {resp.status_code}: {err}")
+                    err = (data.get("error") or {}).get("message") if isinstance(data, dict) else ''
+                    err = err or data.get('_raw') or str(resp.status_code)
+                    info = model_endpoint.http_failure(resp.status_code, base_url,
+                                                      model=self._cfg.get('model'), detail=err)
+                    text = info.get('title') or ('API %s' % resp.status_code)
+                    if info.get('next_step'):
+                        text += '；' + info['next_step']
+                    if info.get('examples'):
+                        text += '。已验证可用：' + '；'.join(info['examples'])
+                    self._result_cb(ok=False, error=text)
                     return
                 text = (data.get("choices") or [{}])[0].get("message", {}).get("content", "")
                 if text:
@@ -193,18 +263,25 @@ class AIChatEngine(QObject):
         self._rag_provider = None      # 可插拔检索器: fn(query) -> context str
         self._rag_label = "知识库参考"
         self._persona_fn = None        # 人设注入: fn() -> str(空串=不注入)
+        self._ledger_snapshot = None   # 本轮回复前读到的任务台账快照
 
     @staticmethod
     def _load_config():
-        try:
-            with open(_CONFIG_PATH, 'r', encoding='utf-8-sig') as f:
-                return json.load(f)
-        except Exception:
-            return {}
+        return guga_paths.read_config()
 
     @property
     def enabled(self) -> bool:
         return bool(self._cfg.get('api_key'))
+
+    def config_problem(self) -> str:
+        """界面用：当前缺什么（空串=可用）。"""
+        return model_config_error(self._cfg)
+
+    def provider(self) -> str:
+        return provider_label(self._cfg)
+
+    def endpoint(self) -> str:
+        return endpoint_label(self._cfg)
 
     def is_busy(self) -> bool:
         """是否正在请求中（自动观战用它避免打断正在进行的对话/分析）"""
@@ -232,8 +309,9 @@ class AIChatEngine(QObject):
         self._persona_fn = fn
 
     def ask(self, user_msg: str, rag_query: str = None, system_override: str = None):
-        if not self.enabled:
-            self.failed.emit("未配置 API Key")
+        problem = self.config_problem()
+        if problem:
+            self.failed.emit(problem)
             return
         rag_context = ""
         if rag_query or user_msg:
@@ -265,6 +343,13 @@ class AIChatEngine(QObject):
         # 语音/持续对话需要时间感知（远端语音稳定性线引入）
         from core.companion_dialogue import current_time_instructions
         prompt += current_time_instructions()
+        # 第五项：每次回复前强制读当前任务台账并注入；读不到就写明读不到。
+        try:
+            snapshot = ledger_snapshot()
+        except Exception as exc:
+            snapshot = dict(ok=False, reason='%s: %s' % (type(exc).__name__, str(exc)[:120]))
+        self._ledger_snapshot = snapshot
+        prompt += '\n\n' + ledger_note(snapshot)
         history = self._history[-self._cfg.get('max_history', 8) * 2:]
         self._last_user_msg = user_msg
         self._worker = AIChatWorker(self._cfg, prompt, history, user_msg, rag_context,
@@ -280,11 +365,25 @@ class AIChatEngine(QObject):
             return
         if ok:
             expr, action, content = parse_reply(text)
+            snapshot = self._ledger_snapshot or {}
+            has_evidence = bool(snapshot.get('ok') and (
+                str(snapshot.get('status') or '') in ('completed', 'done', 'succeeded')
+                or int(snapshot.get('evidence_count') or 0) > 0))
+            # 第六项：没有执行回执时不许说“已转交/正在生成/请手动点”；本轮能执行时
+            # 不许说“没有权限/纯问答模式”。
+            content, _hits = sanitize(content, executable=True, has_evidence=has_evidence)
+            # 第五项：台账读不到而用户在问进度 → 回复必须先如实说明读不到。
+            disclosure = ledger_disclosure(snapshot, self._last_user_msg, executable=True)
+            if disclosure:
+                content = disclosure + '\n' + content
             self._history.append({"role": "user", "content": self._last_user_msg})
             self._history.append({"role": "assistant", "content": content})
             self.reply_ready.emit(content, expr, action)
         else:
-            self.failed.emit(error or "未知错误")
+            # 第六项：失败消息同样遵守诚实性规则，不许出现“已转交/正在生成/请手动点”。
+            honest_error, _hits = sanitize(error or "未知错误", executable=True,
+                                           has_evidence=False)
+            self.failed.emit(honest_error)
 
 
 def parse_reply(text: str):

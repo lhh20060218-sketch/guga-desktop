@@ -22,8 +22,30 @@ from PIL import ImageChops
 pyautogui.FAILSAFE = True
 pyautogui.PAUSE = 0.4
 
-EVIDENCE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "evidence")
-os.makedirs(EVIDENCE_DIR, exist_ok=True)
+def _evidence_dir():
+    """取证目录必须落在用户可写位置：程序可能装在 Program Files 或只读解压目录。"""
+    try:
+        _repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        if _repo not in sys.path:
+            sys.path.insert(0, _repo)
+        from core import guga_paths
+        return str(guga_paths.RUNTIME / "evidence")
+    except Exception:
+        pass
+    base = os.environ.get("LOCALAPPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Local")
+    return os.path.join(base, "GUGA", "runtime", "evidence")
+
+
+EVIDENCE_DIR = _evidence_dir()
+try:
+    os.makedirs(EVIDENCE_DIR, exist_ok=True)
+except OSError:
+    import tempfile
+    EVIDENCE_DIR = os.path.join(tempfile.gettempdir(), "GUGA-evidence")
+    try:
+        os.makedirs(EVIDENCE_DIR, exist_ok=True)
+    except OSError:
+        pass
 
 
 def log(msg):

@@ -5,10 +5,24 @@ from pathlib import Path
 from PyQt5.QtCore import QObject,pyqtSignal,QUrl,QTimer
 from PyQt5.QtMultimedia import QMediaPlayer,QMediaContent,QMediaPlaylist
 ROOT=Path(__file__).resolve().parents[1]
-MUSIC=ROOT/'runtime/music'
+try:  # 翻唱产物/来源索引属运行期数据：安装目录只读时写到用户目录
+    from core import guga_paths
+    MUSIC=guga_paths.RUNTIME/'music'
+except Exception:  # pragma: no cover
+    MUSIC=Path(os.environ.get('LOCALAPPDATA') or os.environ.get('APPDATA')
+               or os.path.expanduser('~'))/'GUGA'/'runtime'/'music'
+LEGACY_MUSIC=ROOT/'runtime/music'   # 安装目录旧数据：只读回退
+
+
+def _music_file(name):
+    for folder in (MUSIC,LEGACY_MUSIC):
+        path=folder/name
+        if path.exists():return path
+    return MUSIC/name
+
 
 def song_entry(title):
-    path=MUSIC/'library.json'
+    path=_music_file('library.json')
     library=json.loads(path.read_text(encoding='utf-8')) if path.exists() else {}
     return library.get(str(title).strip().strip('《》'))
 
@@ -32,7 +46,7 @@ class MusicPerformance(QObject):
         title=title or '晴天'
         entry=song_entry(title)
         if not entry or not entry.get('verified_full_length') or entry.get('pipeline_version',0)<2:
-            if (MUSIC/'source.json').exists() and (MUSIC/'guga-reference.wav').exists():
+            if _music_file('source.json').exists() and _music_file('guga-reference.wav').exists():
                 return self.prepare(title)
             return dict(ok=False,error='这首歌尚未完成咕嘎音色翻唱制作；不会用普通语音念歌词冒充唱歌。',title=title)
         path=Path(entry.get('path',''))
@@ -65,7 +79,7 @@ class MusicPerformance(QObject):
         self.player.play();return dict(ok=True,accepted=True,message='已请求从暂停位置继续')
     def prepare(self,title):
         if self.preparing:return dict(ok=False,error='已有歌曲正在制作，请稍后或先停止唱歌')
-        info=json.loads((MUSIC/'source.json').read_text(encoding='utf-8'))
+        info=json.loads(_music_file('source.json').read_text(encoding='utf-8'))
         info=(info.get('songs',{}).get(title) or info)
         source=Path(info.get('path',''))
         if info.get('title')!=title or not source.is_file():return dict(ok=False,error='缺少这首歌的完整音频源；未启动制作')
@@ -74,6 +88,7 @@ class MusicPerformance(QObject):
         def work():
             result=dict(ok=False,error='歌曲转换没有返回结果')
             try:
+                MUSIC.mkdir(parents=True,exist_ok=True)
                 python=str(Path(sys.executable).with_name('python.exe'))
                 proc=subprocess.Popen([python,str(ROOT/'tools/convert_song.py'),str(source),str(MUSIC/'guga-reference.wav'),str(info['expected_seconds']),title],cwd=str(ROOT),stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,encoding='utf-8',errors='replace',creationflags=0x08000000)
                 self.proc=proc

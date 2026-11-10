@@ -165,19 +165,112 @@ function ensurePresetUsers() {
   ]) {
     if (!users.some(x => x.username === name)) {
       const salt = crypto.randomBytes(8).toString('hex');
-      users.push({ username: name, salt, hash: hashPassword(pass, salt) });
+      // 预置账号归运营方所有：评委=管理员；两者默认开通云端权益（自有账号，不在售卖口径内）
+      users.push({
+        username: name, salt, hash: hashPassword(pass, salt),
+        cloudEntitled: true, cloudQuota: null, cloudUsed: 0,
+        role: role === '评委' ? 'admin' : '',
+      });
       console.log(`[init] ${role}账号已生成: ${name} / ${pass}`);
       changed = true;
     }
+  }
+  // 老部署字段迁移：只补字段、不擅自授予权益（新账号默认无云端权益）
+  for (const u of users) {
+    if (u.username === JUDGE_USER && !u.role) { u.role = 'admin'; changed = true; }
+    if (typeof u.cloudEntitled !== 'boolean') { u.cloudEntitled = false; changed = true; }
+    if (u.cloudQuota === undefined) { u.cloudQuota = null; changed = true; }
+    if (!Number.isFinite(Number(u.cloudUsed))) { u.cloudUsed = 0; changed = true; }
   }
   if (changed || !loadJSON('users.json', null)) saveJSON('users.json', users);
 }
 ensurePresetUsers();
 const tasks = loadJSON('tasks.json', []);
 const sessions = loadJSON('sessions.json', {});
+const usage = loadJSON('usage.json', []);
 
 function hashPassword(pass, salt) {
   return crypto.scryptSync(pass, salt, 32).toString('hex');
+}
+
+/* ---------------- 云端权益 / 管理员 / 计量 ----------------
+ * 产品口径：买软件 = 本地功能（用户自填 Key）；买账号 = 云端服务（才可用运营方 Key）。
+ * users.json：cloudEntitled(布尔) / cloudQuota(模型调用次数上限，null=不限) / cloudUsed(已用次数)
+ * usage.json：每次真实模型调用一条 {user, at, model, kind, taskId}，可按账号查。 */
+function userRecord(name) { return users.find(u => u.username === name) || null; }
+function isAdmin(name) {
+  if (!name) return false;
+  if (name === JUDGE_USER) return true;
+  const u = userRecord(name);
+  return !!(u && (u.role === 'admin' || u.isAdmin === true));
+}
+function cloudInfo(name) {
+  const u = userRecord(name) || {};
+  const quota = typeof u.cloudQuota === 'number' && Number.isFinite(u.cloudQuota) ? u.cloudQuota : null;
+  return { entitled: u.cloudEntitled === true, quota, used: Number(u.cloudUsed || 0) };
+}
+function requireAdmin(req, res, next) {
+  if (!isAdmin(req.user)) {
+    return res.status(403).json({ error: '仅管理员可修改云端模型配置', code: 'ADMIN_ONLY' });
+  }
+  next();
+}
+/* 云端权益闸：无权益 / 额度用尽 → 403；挂在消耗运营方 Key 的入口（派单/聊天/对比） */
+function requireCloud(req, res, next) {
+  const c = cloudInfo(req.user);
+  if (!c.entitled) {
+    return res.status(403).json({
+      error: '当前账号未开通云端服务——云端模型仅对已购账号开放，请购买云端服务后重试',
+      code: 'CLOUD_NOT_ENTITLED',
+      cloudEntitled: false,
+    });
+  }
+  if (c.quota != null && c.used >= c.quota) {
+    return res.status(403).json({
+      error: `云端额度已用完（已用 ${c.used} / 上限 ${c.quota} 次）——请续购云端服务后重试`,
+      code: 'CLOUD_QUOTA_EXCEEDED',
+      cloudQuota: c.quota, cloudUsed: c.used,
+    });
+  }
+  next();
+}
+/* 本机执行方的云端辅助（视觉请示 / 验收请示）：无权益或超额时返回可降级的 403。
+ * 桌面端看到 degraded:true 时应"跳过本步、继续完成本地任务"，不要整单判失败。 */
+function agentCloudGate(helper) {
+  return (req, res, next) => {
+    const c = cloudInfo(req.agent && req.agent.userId);
+    if (!c.entitled) {
+      return res.status(403).json({
+        error: '云端辅助不可用：当前账号未开通云端服务，本步骤已跳过，可继续完成本地任务',
+        code: 'CLOUD_NOT_ENTITLED',
+        degraded: true, helper, cloudEntitled: false,
+      });
+    }
+    if (c.quota != null && c.used >= c.quota) {
+      return res.status(403).json({
+        error: `云端辅助不可用：云端额度已用完（已用 ${c.used} / 上限 ${c.quota} 次），本步骤已跳过，可继续完成本地任务`,
+        code: 'CLOUD_QUOTA_EXCEEDED',
+        degraded: true, helper, cloudQuota: c.quota, cloudUsed: c.used,
+      });
+    }
+    next();
+  };
+}
+/* 真实模型调用记量：调用真正发出后按账号累加，并落 usage.json（能按账号查次数） */
+function recordUsage(name, meta) {
+  if (!name) return;
+  const u = userRecord(name);
+  if (!u) return;
+  u.cloudUsed = Number(u.cloudUsed || 0) + 1;
+  saveJSON('users.json', users);
+  usage.push({
+    user: name, at: Date.now(),
+    model: String((meta && meta.model) || ''),
+    kind: String((meta && meta.kind) || 'model'),
+    taskId: String((meta && meta.taskId) || ''),
+  });
+  if (usage.length > 20000) usage.splice(0, usage.length - 20000);   // 只保留最近 2 万条，防文件无限增长
+  saveJSON('usage.json', usage);
 }
 
 /* ---------------- 鉴权 ---------------- */
@@ -212,18 +305,91 @@ function saveLLMCfg() {
 
 function llmReady() { return !!(llmCfg.baseUrl && llmCfg.apiKey && llmCfg.model); }
 
-async function llmStream(messages, onDelta, cfg) {
+/* -------- base_url 归一化 + 重定向保留 POST 的统一入口 ----------
+ * 用户常把完整端点（.../chat/completions）或控制台地址粘进 base_url，
+ * 导致 /chat/completions 被拼两次报 404/405；或网关做 http→https / 补斜杠
+ * 跳转，Node fetch 默认把 POST 改成 GET，只接受 POST 的端点返回 405。
+ * 这两个问题在 Python 端已修（model_endpoint.py），云端没修会导致
+ * "网关对错误路径返 404、对错误方法返 400"但咕嘎仍拿到 405 的矛盾。 */
+const _KNOWN_HOST_PATHS = {
+  'api.openai.com': '/v1', 'api.deepseek.com': '/v1',
+  'api.moonshot.cn': '/v1', 'api.siliconflow.cn': '/v1',
+  'openrouter.ai': '/api/v1',
+  'dashscope.aliyuncs.com': '/compatible-mode/v1',
+  'maas.qianwenaiapi.com': '/compatible-mode/v1',
+  'open.bigmodel.cn': '/api/paas/v4', 'ark.cn-beijing.volces.com': '/api/v3',
+};
+const _ENDPOINT_SUFFIXES = ['/chat/completions', '/completions', '/responses', '/embeddings/multimodal', '/embeddings'];
+
+function normalizeBaseUrl(raw) {
+  const s = String(raw || '').trim().replace(/["' ]/g, '');
+  if (!s) return { ok: false, base: '', error: 'base_url 为空' };
+  let input = s.toLowerCase().startsWith('http') ? s : 'https://' + s;
+  let u; try { u = new URL(input); } catch { return { ok: false, base: '', error: 'base_url 不合法: ' + s.slice(0, 80) }; }
+  let path = u.pathname.replace(/\/+$/, '');
+  let removed = '';
+  for (const suffix of _ENDPOINT_SUFFIXES) {
+    if (path.toLowerCase().endsWith(suffix)) { path = path.slice(0, -suffix.length).replace(/\/+$/, ''); removed = suffix; break; }
+  }
+  if ((path === '' || path === '/') && _KNOWN_HOST_PATHS[u.hostname.toLowerCase()]) {
+    path = _KNOWN_HOST_PATHS[u.hostname.toLowerCase()];
+  }
+  const base = u.protocol + '//' + u.host + (path || '');
+  return { ok: true, base, removed_suffix: removed };
+}
+
+async function llmPost({ baseUrl, apiKey, body, signal, timeoutMs, stream, maxRedirects = 2 }) {
+  /* 保留 POST 方法跟随重定向；直连失败且可能被代理改写时返回诊断。
+   * 返回 { ok, status, bodyText, redirects, error, attemptedUrl } */
+  const norm = normalizeBaseUrl(baseUrl);
+  if (!norm.ok) return { ok: false, error: norm.error };
+  const url = norm.base + '/chat/completions';
+  const headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey };
+  let currentUrl = url;
+  const redirects = [];
+  let resp;
+  for (let hop = 0; hop <= maxRedirects; hop++) {
+    resp = await fetch(currentUrl, { method: 'POST', headers, body: body ? JSON.stringify(body) : undefined, signal });
+    if (![301, 302, 303, 307, 308].includes(resp.status)) break;
+    const location = resp.headers.get('Location');
+    if (!location) break;
+    redirects.push({ status: resp.status, from: currentUrl, to: location });
+    currentUrl = new URL(location, currentUrl).toString();
+    try { resp.body && await resp.body.cancel(); } catch {}
+  }
+  const text = await resp.text().catch(() => '');
+  return { ok: resp.ok, status: resp.status, bodyText: text, redirects, attemptedUrl: url };
+}
+
+async function llmStream(messages, onDelta, cfg, usageMeta) {
   cfg = cfg || llmCfg;
   const controller = new AbortController();
   const killer = setTimeout(() => controller.abort(), 90000);
   try {
-    const resp = await fetch(cfg.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + cfg.apiKey },
-      body: JSON.stringify({ model: cfg.model, messages, stream: true, temperature: 0.7 }),
-      signal: controller.signal,
-    });
-    if (!resp.ok) throw new Error('LLM HTTP ' + resp.status);
+    /* 保留 POST 跟随重定向，不交给 fetch 自动把 POST 改成 GET。 */
+    const norm = normalizeBaseUrl(cfg.baseUrl);
+    if (!norm.ok) throw new Error('base_url 配置错误：' + norm.error);
+    let currentUrl = norm.base + '/chat/completions';
+    const headers = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + cfg.apiKey };
+    let resp;
+    const redirects = [];
+    for (let hop = 0; hop <= 2; hop++) {
+      resp = await fetch(currentUrl, { method: 'POST', headers,
+        body: JSON.stringify(Object.assign({ model: cfg.model, messages, stream: true, temperature: 0.7 },
+          cfg.maxTokens ? { max_tokens: cfg.maxTokens } : {})),
+        signal: controller.signal });
+      if (![301, 302, 303, 307, 308].includes(resp.status)) break;
+      const location = resp.headers.get('Location');
+      if (!location) break;
+      redirects.push({ status: resp.status, from: currentUrl, to: location });
+      currentUrl = new URL(location, currentUrl).toString();
+      try { resp.body && await resp.body.cancel(); } catch {}
+    }
+    if (!resp.ok) {
+      const t = await resp.text().catch(() => '');
+      throw new Error('LLM HTTP ' + resp.status + (redirects.length ? '（重定向 ' + redirects.length + ' 次后仍失败）' : '') + '；实际请求：POST ' + (norm.base + '/chat/completions') + '；服务端返回：' + t.slice(0, 200));
+    }
+    recordUsage(usageMeta && usageMeta.user, { model: cfg.model, kind: usageMeta && usageMeta.kind, taskId: usageMeta && usageMeta.taskId });
     const reader = resp.body.getReader();
     const decoder = new TextDecoder();
     let buf = '', full = '';
@@ -248,9 +414,10 @@ async function llmStream(messages, onDelta, cfg) {
   } finally { clearTimeout(killer); }
 }
 
-async function llmJSON(messages, cfg) {
+async function llmJSON(messages, cfg, usageMeta, maxTokens) {
   let out = '';
-  await llmStream(messages, (d) => { out += d; }, cfg);
+  const useCfg = maxTokens ? Object.assign({}, cfg || llmCfg, { maxTokens }) : cfg;
+  await llmStream(messages, (d) => { out += d; }, useCfg, usageMeta);
   const m = out.match(/\{[\s\S]*\}/);
   if (!m) throw new Error('模型未返回 JSON');
   return JSON.parse(m[0]);
@@ -271,7 +438,7 @@ function cleanVisionText(t) {
     .trim();
 }
 
-async function llmVision(question, imageB64, cfg) {
+async function llmVision(question, imageB64, cfg, usageMeta) {
   cfg = cfg || llmCfg;
   const messages = [{
     role: 'user',
@@ -280,18 +447,32 @@ async function llmVision(question, imageB64, cfg) {
       { type: 'text', text: question },
     ],
   }];
+  const norm = normalizeBaseUrl(cfg.baseUrl);
+  if (!norm.ok) return { ok: false, error: 'base_url 配置错误：' + norm.error };
   let lastErr = '';
   for (const m of VISION_MODELS) {
     const controller = new AbortController();
     const killer = setTimeout(() => controller.abort(), 60000);
     try {
-      const resp = await fetch(cfg.baseUrl.replace(/\/+$/, '') + '/chat/completions', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + cfg.apiKey },
-        body: JSON.stringify({ model: m, messages, stream: false, max_tokens: 900, temperature: 0.2 }),
-        signal: controller.signal,
-      });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      /* 保留 POST 跟随重定向，避免 Node fetch 把 POST 改成 GET 返回 405。 */
+      let currentUrl = norm.base + '/chat/completions';
+      let resp;
+      for (let hop = 0; hop <= 2; hop++) {
+        resp = await fetch(currentUrl, { method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + cfg.apiKey },
+          body: JSON.stringify({ model: m, messages, stream: false, max_tokens: 900, temperature: 0.2 }),
+          signal: controller.signal });
+        if (![301, 302, 303, 307, 308].includes(resp.status)) break;
+        const location = resp.headers.get('Location');
+        if (!location) break;
+        currentUrl = new URL(location, currentUrl).toString();
+        try { resp.body && await resp.body.cancel(); } catch {}
+      }
+      if (!resp.ok) {
+        const t = await resp.text().catch(() => '');
+        throw new Error('HTTP ' + resp.status + '（POST ' + (norm.base + '/chat/completions') + '）：' + t.slice(0, 160));
+      }
+      recordUsage(usageMeta && usageMeta.user, { model: m, kind: usageMeta && usageMeta.kind, taskId: usageMeta && usageMeta.taskId });
       const j = await resp.json();
       const txt = cleanVisionText(j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content);
       if (!txt) throw new Error('空回复');
@@ -361,7 +542,7 @@ async function distillMemory(task) {
     const v = await withSlot(() => llmJSON([
       { role: 'system', content: '从这次任务中提炼一条值得长期记住的"用户偏好/事实"（25字内、第三人称、以"少爷"开头，如"少爷常让我做竞品调研"）。没有值得记的输出 {"fact":""}。只输出 JSON。' },
       { role: 'user', content: `总目标：${task.goal}\n子任务：${task.subtasks.map(s => s.name).join('、')}` },
-    ]));
+    ], undefined, { user: task.userId, kind: 'memory', taskId: task.id }));
     if (v && v.fact && rememberFact(task.userId, v.fact, '任务')) {
       task.log.push({ ts: Date.now(), kind: 'info', text: `🧠 咕嘎记住了：${String(v.fact).slice(0, 40)}` });
       saveJSON('tasks.json', tasks);
@@ -380,6 +561,10 @@ const EXECUTORS = ['本地工作流', 'MCP 工具', '外部智能体'];
 const WORK_BUDGET_MS = 45000;    // 单子任务执行预算，超时真催办
 const MAX_ATTEMPTS = 3;          // 同一子任务最多执行 3 次
 const PAUSE_TTL_MS = 15 * 60 * 1000;   // 本机子任务暂停保留窗口：超时自动丢弃清理
+/* 本机执行判死策略（2026-11-07 修正）：
+ * 以"最后一次 busy 心跳"为基准，心跳持续就绝不判死（WorkBuddy 出 PPT 实测 13 分钟）；
+ * 只有心跳中断满 20 分钟才判异常收尾，真挂了也能在 20 分钟内落定台账。 */
+const LOCAL_HEARTBEAT_DEAD_MS = 20 * 60 * 1000;
 
 const WORKER_ROLE = {
   '本地工作流': '你是被咕嘎管家派单的执行智能体（本地工作流型）：擅长结构化、确定性处理，输出严谨规整。',
@@ -481,7 +666,8 @@ async function runSubtask(task, st) {
       .filter(a => a.body);
     // 同一单固定用一套模型（默认单走当前配置，对比"甲"单走服务器默认模型），保证公平
     const wcfg = task.modelTag === 'env' ? LLM_ENV : llmCfg;
-    const body = await withSlot(() => llmStream(workerMessages(task, st, prev), () => {}, wcfg));
+    const body = await withSlot(() => llmStream(workerMessages(task, st, prev), () => {}, wcfg,
+      { user: task.userId, kind: 'worker', taskId: task.id }));
     if (!body.trim()) throw new Error('工人智能体返回空产物');
     fs.writeFileSync(artifactPath(task.id, st.id, st.attempts), body, 'utf8');
     st.artifact = { attempt: st.attempts, chars: body.length, file: `${task.id}_${st.id}_${st.attempts}.md` };
@@ -494,7 +680,8 @@ async function runSubtask(task, st) {
     // ② 监工真实验收（通道异常按不通过处理——宁可打回复核，不放水）
     let verdict;
     try {
-      verdict = await withSlot(() => llmJSON(reviewMessages(task, st, body), task.modelTag === 'env' ? LLM_ENV : llmCfg));
+      verdict = await withSlot(() => llmJSON(reviewMessages(task, st, body), task.modelTag === 'env' ? LLM_ENV : llmCfg,
+        { user: task.userId, kind: 'review', taskId: task.id }));
     } catch { verdict = { pass: false, reason: '核对通道波动，本轮先打回，复核后重新交付' }; }
     st.checkResult = String(verdict.reason || '').slice(0, 80);
 
@@ -559,7 +746,8 @@ function finalMessages(task) {
 async function finalReview(task) {
   let verdict = null;
   try {
-    verdict = await withSlot(() => llmJSON(finalMessages(task)));
+    verdict = await withSlot(() => llmJSON(finalMessages(task), undefined,
+      { user: task.userId, kind: 'final', taskId: task.id }));
   } catch { verdict = null; }   // 终检通道波动：不卡死，如实按通过收尾
   if (task.finishedAt) return;
   task.finalReviewing = false;
@@ -572,6 +760,7 @@ async function finalReview(task) {
   if (bad && bad.status === 'done' && !(task.finalReworks >= 1)) {
     task.finalReworks = 1;
     bad.status = 'returned';
+    bad.finishedAt = 0;
     bad.feedback = '终检打回：' + String(verdict.reason || '与总目标衔接不符').slice(0, 60);
     bad.attempts = Math.min(bad.attempts, MAX_ATTEMPTS - 1);   // 释放一次返工额度
     task.log.push({ ts: Date.now(), kind: 'warn', text: `🔍 终检未过：「${bad.name}」${bad.feedback}，已点名返工` });
@@ -630,6 +819,7 @@ function localWatchdog() {
   const agents = loadJSON('agents.json', {});
   const isOnline = a => Date.now() - (a.lastSeen || 0) < AGENT_ONLINE_MS;
   let dirty = false;
+  const finishThese = new Set();   // 判死也必须收尾，避免整单永久挂起
   for (const task of tasks) {
     if (task.finishedAt || task.demo) continue;
     for (const st of task.subtasks || []) {
@@ -653,15 +843,20 @@ function localWatchdog() {
         task.execDevice = alt[0].device;
         task.execDeviceId = alt[0].id;
         st.localClaimed = false;
+        st.claimedBy = '';
+        st.lastAliveAt = 0;
       } else {
         st.status = 'error';
+        st.finishedAt = Date.now();
         st.checkResult = `执行设备「${(bound && bound.device) || task.execDevice || '原设备'}」离线且${task.reRouted ? '已无其他在线电脑可接手' : '未领单'}，本单如实标注（重新派单即可）`;
         task.log.push({ ts: Date.now(), kind: 'warn', text: `⚠ 「${st.name}」${st.checkResult}` });
         inflight.delete(task.id + ':' + st.id);
+        finishThese.add(task);
       }
       dirty = true;
     }
   }
+  for (const task of finishThese) finishCheck(task);
   if (dirty) saveJSON('tasks.json', tasks);
 }
 
@@ -674,9 +869,12 @@ function startLocalJob(task, st) {
   st.attempts++;
   st.progress = 0;
   st.overdue = false;
+  st.finishedAt = 0;
   st.startedAt = Date.now();
   st.feedback = st.feedback || '';
   st.localClaimed = false;
+  st.claimedBy = '';
+  st.lastAliveAt = 0;
   task.log.push({ ts: Date.now(), kind: 'info', text: `🖥 「${st.name}」已派给本机执行方（咕嘎本体）：将真实拉起本机 AI 软件干活，少爷可在本机亲眼看过程` });
   saveJSON('tasks.json', tasks);
 }
@@ -684,22 +882,28 @@ function startLocalJob(task, st) {
 /* 进度显示：真实执行中按已用时/预算估算（产物字数才是真实产出） */
 setInterval(() => {
   let dirty = false;
+  const finishThese = new Set();   // 超时判死后必须走收尾（否则整单永远停在"执行中"）
   for (const task of tasks) {
     if (task.finishedAt || task.demo) continue;
     for (const st of task.subtasks) {
       if (st.status !== 'running' || !st.startedAt) continue;
-      // 本机执行方：GUI 自动化较慢，90 秒后如实提醒；7 分钟未交付判异常并释放重派
+      // 本机执行方：GUI 自动化较慢，90 秒后如实提醒；心跳持续不判死，心跳中断满 20 分钟才判异常
       if (st.executor === '本机执行') {
         const el = Date.now() - st.startedAt;
         if (!st.overdue && el > 90000) {
           st.overdue = true; dirty = true;
           task.log.push({ ts: Date.now(), kind: 'warn', text: `⏰ 本机执行方执行「${st.name}」已 ${Math.round(el / 1000)} 秒（真实 GUI 操作较慢，咕嘎继续盯）` });
         }
-        if (el > 420000) {
+        const aliveBase = st.lastAliveAt || st.startedAt;
+        if (Date.now() - aliveBase > LOCAL_HEARTBEAT_DEAD_MS) {
           st.status = 'error';
-          st.checkResult = '本机执行方 7 分钟未交付（可能已离线）';
+          st.finishedAt = Date.now();
+          st.localClaimed = false;
+          st.claimedBy = '';
+          st.checkResult = '本机执行方 20 分钟无心跳且未交付（可能已退出或失联）';
           inflight.delete(task.id + ':' + st.id);
-          task.log.push({ ts: Date.now(), kind: 'warn', text: `⚠ 「${st.name}」本机执行超时：${st.checkResult}，本单已如实标注` });
+          task.log.push({ ts: Date.now(), kind: 'warn', text: `⚠ 「${st.name}」本机执行心跳中断超时：${st.checkResult}，本单已如实标注` });
+          finishThese.add(task);
           dirty = true;
         }
         continue;
@@ -708,6 +912,7 @@ setInterval(() => {
       if (est !== st.progress) { st.progress = est; dirty = true; }
     }
   }
+  for (const task of finishThese) finishCheck(task);
   if (dirty) saveJSON('tasks.json', tasks);
 }, 1200);
 
@@ -836,11 +1041,14 @@ function planPrompt(goal, userId) {
   }
   return [
     { role: 'system', content: '你是桌面智能体"咕嘎管家"，负责把用户的生产力目标拆解为可执行的子任务。' +
-      '拆解规则：2~4 个子任务；每个子任务包含 name（10字内动词短语）、executor（只能取："本地工作流"、"MCP 工具"、"外部智能体" 三者之一）、acceptance（一句话可核对的验收标准，如"文件存在且包含本周7天数据"）。' +
+      '拆解铁律：按"一个动作一步"拆解，2~6 个子任务；导出、检查、补充、验收各自独立成步，宁可多一步，严禁为简洁而合并或压缩步数。' +
+      '每个子任务包含 name（10字内动词短语）、executor（只能取："本地工作流"、"MCP 工具"、"外部智能体" 三者之一）、acceptance（一句话可核对的验收标准，如"文件存在且包含本周7天数据"）。' +
+      'executor 判定铁律（逐条照做，禁止自由发挥）：①仅当目标原句明确点名某个软件（如"用 WorkBuddy""用豆包""用 JoyCode"）时，该步填"外部智能体"，且 name 或 acceptance 必须写出该软件名；②仅当目标原句明确要求"生成文件/表格/导出/归档"且该步就是落盘动作时，该步填"MCP 工具"；③其余一切步骤（含监工验收）一律填"本地工作流"。严禁凭空引入 PowerPoint、WPS、文件管理器、浏览器、Excel 等目标未点名的软件；未点名软件的步骤不得填"外部智能体"。' +
+      '末尾铁律：subtasks 数组最后一项必须是独立的"监工验收"子任务——name 以"验收"开头（如"监工验收"），executor 固定填"本地工作流"，acceptance 写"逐项核对前序全部产物与总目标一致，缺项即打回"；不得省略，不得并入前一步。' +
       '可选字段 attachPrev（布尔）：仅当该子任务需要"把上一步的产物作为文件喂给目标软件"时设为 true（复合接力，如：分镜文本→喂给视频生成）。' +
       'acceptance 铁律：必须仅凭目标本身就能核对。目标里没给的信息（主题/风格/对象等）一律写"自行合理拟定"，严禁出现"用户提供了…""用户提供…要求"这类把信息缺口推回给用户的写法——用户不在执行现场，执行方只能靠目标自拟。' +
       '若下方注入了能力档案：子任务的可行性（谁产文本、谁吃文件、谁出视频）必须对照档案写，档案里标【未验证】的能力不得假设可用。' +
-      '只输出 JSON，格式：{"subtasks":[{"name":"","executor":"","acceptance":"","attachPrev":false}]}' + kbCtx + kb7Ctx(goal) },
+      '输出铁律：只输出一个 JSON 对象，形如 {"subtasks":[{"name":"","executor":"","acceptance":"","attachPrev":false}]}；禁止用反引号代码块包裹，禁止 JSON 前后任何解释文字。' + kbCtx + kb7Ctx(goal) },
     { role: 'user', content: '目标：' + goal },
   ];
 }
@@ -849,7 +1057,7 @@ function createTask(userId, goal, subtasksRaw, kb, space) {
   kb = kb || {};
   space = (String(space || '').trim() || '默认空间').slice(0, 16);
   const now = Date.now();
-  const subs = subtasksRaw.slice(0, 4).map((s, i) => {
+  const subs = subtasksRaw.slice(0, 6).map((s, i) => {
     const ex = EXECUTORS.includes(s.executor) ? s.executor : EXECUTORS[i % 3];
     return {
     id: 'st' + i,
@@ -862,6 +1070,7 @@ function createTask(userId, goal, subtasksRaw, kb, space) {
     attempts: 0,
     attachPrev: !!s.attachPrev,   // KB7 复合接力：开工时把上一步产物落文件喂给目标软件
     overdue: false,
+    finishedAt: 0,                // 子任务落定时间（done/error），台账轨迹用
     feedback: '',
     checkResult: '',
     artifact: null,
@@ -884,7 +1093,13 @@ function createTask(userId, goal, subtasksRaw, kb, space) {
   if (kb.route) task.log.push({ ts: now, kind: 'info', text: `📚 调度依据 KB3 指挥规则库「${kb.route.type}」：首选 ${String(kb.route.first).slice(0, 32)}` });
   if (kb.tpl) task.log.push({ ts: now, kind: 'info', text: `📚 拆解参考 KB5 任务模板库「${kb.tpl.title}」` });
   tasks.unshift(task);
-  if (tasks.length > 50) tasks.length = 50;
+  // 任务保留按账号分别计算（每账号 30 单），不再全局截断——否则一个账号跑多了会把别的账号历史挤掉
+  const KEEP_PER_USER = 30;
+  const mineIdx = [];
+  tasks.forEach((t, i) => { if (t.userId === task.userId) mineIdx.push(i); });
+  if (mineIdx.length > KEEP_PER_USER) {
+    for (const i of mineIdx.slice(KEEP_PER_USER).sort((a, b) => b - a)) tasks.splice(i, 1);
+  }
   saveJSON('tasks.json', tasks);
   return task;
 }
@@ -992,7 +1207,7 @@ const app = express();
  * 必须注册在全局 json 中间件之前，用自己的 3mb 解析器才不会被 413 拦掉）。
  * 本体每 1.2 秒最多问一次（按执行方 token 限速），防滥用。 */
 const visionLastAsk = new Map();
-app.post('/api/agent/vision', express.json({ limit: '3mb' }), agentAuth, async (req, res) => {
+app.post('/api/agent/vision', express.json({ limit: '3mb' }), agentAuth, agentCloudGate('vision'), async (req, res) => {
   const tok = String(req.headers['x-agent-token'] || '');
   const last = visionLastAsk.get(tok) || 0;
   if (Date.now() - last < 1200) return res.status(429).json({ error: '视觉请示太频繁，稍候再问' });
@@ -1002,7 +1217,7 @@ app.post('/api/agent/vision', express.json({ limit: '3mb' }), agentAuth, async (
   if (img.length < 100) return res.status(400).json({ error: 'image 为空' });
   if (img.length > 2200000) return res.status(413).json({ error: '图片过大，请压缩到 1600px 宽以内' });
   if (!llmCfg.baseUrl || !llmCfg.apiKey) return res.json({ ok: false, error: '视觉模型未配置' });
-  const r = await llmVision(q, img);
+  const r = await llmVision(q, img, undefined, { user: req.agent && req.agent.userId, kind: 'vision' });
   if (!r.ok) console.log(`[vision] 视觉请示失败: ${r.error}`);
   res.json({ ok: r.ok, text: r.ok ? r.text : '', model: r.model || '' });
 });
@@ -1191,7 +1406,7 @@ function detectLocalApp(goal) {
   return null;
 }
 
-async function dispatchGoal(userId, goal, space, useLocal, confirmed = false, fromDevice = '', pickDevice = '') {
+async function dispatchGoal(userId, goal, space, useLocal, confirmed = false, fromDevice = '', pickDevice = '', requiredTools = []) {
   // 隐私阻断放在最前面：不能等它走完路由再拦，否则会先"自动改派本机"再失败，文案也不清楚
   if (isPrivacyGoal(goal)) {
     throw new Error(`咕嘎不接管「${PRIVACY_APPS_TXT}」这类个人通信软件——读屏式自动化必须截取整个窗口画面，`
@@ -1209,7 +1424,25 @@ async function dispatchGoal(userId, goal, space, useLocal, confirmed = false, fr
       ? (list.find(a => (a.id && a.id === pickDevice) || (a.device || '') === pickDevice) || null)
       : (list[0] || null);
     if (pickDevice && !agent) {
-      throw new Error(`所选设备「${pickDevice}」的本体不在线了——请在设备选择器里换一台在线的电脑，或去那台电脑重新启动咕嘎本体`);
+      throw dispatchErr('DEVICE_OFFLINE',
+        `所选设备「${pickDevice}」的本体不在线了——请在设备选择器里换一台在线的电脑，或去那台电脑重新启动咕嘎本体`,
+        { deviceId: pickDevice });
+    }
+    // 跨设备工具校验：只有调用方显式传 requiredTools 才触发（旧客户端不传 → 行为完全不变）
+    if (pickDevice && agent && Array.isArray(requiredTools) && requiredTools.length) {
+      const key = inventoryKey(agent);
+      const tools = deviceTools(key);
+      if (!tools.length) {
+        throw dispatchErr('NO_INVENTORY',
+          `所选设备「${agent.device || pickDevice}」还没上报软件清单，无法确认它装了哪些 AI 软件——让那台电脑的本体启动一次即可自动上报`,
+          { deviceId: agent.id, deviceName: agent.device || '' });
+      }
+      const missing = requiredTools.filter(t => !tools.some(it => toolMatches(it, t)));
+      if (missing.length) {
+        throw dispatchErr('TOOL_MISSING',
+          `所选设备「${agent.device || pickDevice}」上没有：${missing.join('、')}——换一台设备，或先在那边装好再派`,
+          { deviceId: agent.id, deviceName: agent.device || '', missing, available: tools.map(it => it.name) });
+      }
     }
     if (!agent && localHit && !useLocalNow) {
       throw new Error('这单要真实操控您本机的软件干活，云端工人代写就是演剧本，咕嘎不接——请先在 🩺 自检 里下载咕嘎本体并用配对码绑定，绑好再派；或改为不需要操控电脑的纯内容目标');
@@ -1229,7 +1462,7 @@ async function dispatchGoal(userId, goal, space, useLocal, confirmed = false, fr
   const kb = kbMatch(goal);
   if (!llmReady()) return { task: createTask(userId, goal, demoPlan(goal), kb, space), mode: 'demo' };
   try {
-    const plan = await llmJSON(planPrompt(goal, userId));
+    const plan = await llmJSON(planPrompt(goal, userId), undefined, { user: userId, kind: 'plan' }, 2600);
     const subs = Array.isArray(plan.subtasks) ? plan.subtasks : [];
     if (!subs.length) throw new Error('拆解结果为空');
     const task = createTask(userId, goal, subs, kb, space);
@@ -1266,17 +1499,22 @@ async function dispatchGoal(userId, goal, space, useLocal, confirmed = false, fr
   }
 }
 
-app.post('/api/tasks', auth, rateLimit(4000), async (req, res) => {
+app.post('/api/tasks', auth, requireCloud, rateLimit(4000), async (req, res) => {
   const goal = String((req.body || {}).goal || '').trim();
   const space = String((req.body || {}).space || '').trim();
   const useLocal = String((req.body || {}).executor || '') === 'local';
   if (!goal) return res.status(400).json({ error: '请先告诉咕嘎你的目标' });
   try {
     const { task, mode } = await dispatchGoal(req.user, goal, space, useLocal, false, req.device,
-      String((req.body || {}).device || '').slice(0, 60));
+      String((req.body || {}).device || '').slice(0, 60), requiredToolsOf(req.body));
     res.json({ task, mode });
   } catch (e) {
-    res.status(400).json({ error: String(e.message || e) });
+    const out = { error: String(e.message || e) };
+    if (e.code) out.code = e.code;
+    if (e.deviceId) out.deviceId = e.deviceId;
+    if (e.deviceName) out.deviceName = e.deviceName;
+    if (Array.isArray(e.missing)) out.missing = e.missing;
+    res.status(400).json(out);
   }
 });
 
@@ -1452,6 +1690,56 @@ function saveAgentPatch(tok, patch) {
   return true;
 }
 
+/* ---------------- 设备软件清单（跨设备派单用） ----------------
+ * 同一账号两台电脑：本体上报本机可用的 AI 软件，服务端按稳定设备标识归账。
+ * 旧版本体不上报 → inventory.json 一直是空 → 所有旧流程行为与升级前一致。 */
+const INVENTORY_MAX_TOOLS = 200;
+const INVENTORY_TTL = 30 * 864e5;
+function normToolName(s) { return String(s || '').trim().toLowerCase().replace(/\s+/g, ' '); }
+function normToolItem(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+  const name = String(raw.name || raw.app || '').trim().slice(0, 60);
+  if (!name) return null;
+  const ts = (v) => { const n = typeof v === 'number' ? v : Date.parse(v); return isFinite(n) && n > 0 ? n : Date.now(); };
+  return {
+    name,
+    launch: String(raw.launch || raw.exec || raw.exe || '').trim().slice(0, 120),   // 可启动标识：exe / 命令 / 协议
+    version: String(raw.version || '').trim().slice(0, 40),
+    path: String(raw.path || raw.dir || '').trim().slice(0, 200),                  // 路径摘要
+    summary: String(raw.summary || raw.desc || '').trim().slice(0, 120),
+    aliases: (Array.isArray(raw.aliases) ? raw.aliases : []).map(x => String(x || '').trim().slice(0, 40)).filter(Boolean).slice(0, 8),
+    updatedAt: ts(raw.updatedAt),
+  };
+}
+function inventoryKey(agent) { return String((agent && (agent.device_id || agent.id)) || ''); }
+function deviceTools(key) {
+  const all = loadJSON('inventory.json', {});
+  const rec = key ? all[key] : null;
+  return rec && Array.isArray(rec.items) ? rec.items : [];
+}
+function toolMatches(item, want) {
+  const w = normToolName(want);
+  if (!w) return false;
+  const cands = [item.name, item.launch].concat(item.aliases || []).map(normToolName).filter(Boolean);
+  return cands.some(c => c === w || c.includes(w) || (c.length >= 3 && w.includes(c)));
+}
+function requiredToolsOf(body) {
+  const b = body || {};
+  const raw = Array.isArray(b.requiredTools) ? b.requiredTools : (Array.isArray(b.required_tools) ? b.required_tools : []);
+  const out = [];
+  for (const t of raw.slice(0, 10)) {
+    const s = String(t || '').trim().slice(0, 60);
+    if (s && !out.includes(s)) out.push(s);
+  }
+  return out;
+}
+function dispatchErr(code, message, extra) {
+  const e = new Error(message);
+  e.code = code;
+  Object.assign(e, extra || {});
+  return e;
+}
+
 /* ---------------- 配对记录生命周期策略 ----------------
  * 背景：测试/重装/换机产生的配对残留会一直躺在 agents.json 里，
  * "找回已有本体"把陈年记录也指出来，误导用户（实战踩坑：测试码配对记录串到账号里）。
@@ -1516,17 +1804,30 @@ app.post('/api/agent/pair', ipLimit(1200), pairGuard, (req, res) => {
   const token = crypto.randomBytes(24).toString('hex');
   const agents = loadJSON('agents.json', {});
   const device = String((req.body || {}).device || '咕嘎本体').slice(0, 60);
-  // 同设备重新配对：清掉所有账号下同 device 的旧 token——一台电脑同一时间只归一个账号管
-  //（否则笔记本从 888 改绑 666 后，888 仍显示"这台电脑在线"，两边都困惑）
+  const rawPath = String((req.body || {}).path || '').slice(0, 200);
+  // 稳定机器标识：优先客户端上报的 device_id；本体现在还没上报时，用本体所在文件夹路径派生一个，
+  // 这样两台同名设备（不同安装路径）也能共存，同一台重装（同路径）仍然只保留一条。
+  const devId = String((req.body || {}).device_id || '').trim().slice(0, 64)
+    || (rawPath ? 'path:' + crypto.createHash('sha1').update(rawPath).digest('hex').slice(0, 16) : '');
+  // 同设备重新配对：只替换同一台机器的旧记录，同名不同机的设备各自保留、互相不顶掉。
+  // 既没有 device_id 也没有路径的老客户端，退化为"仅本账号内按同名覆盖"，不再跨账号互踢。
   for (const k of Object.keys(agents)) {
-    if ((agents[k].device || '咕嘎本体') === device) delete agents[k];
+    const x = agents[k];
+    if (devId) {
+      // 同一台机器：device_id 相同；或旧版本配对留下的无 device_id 记录但路径一致
+      if (x.device_id === devId
+          || (!x.device_id && x.userId === p.userId && rawPath && x.path === rawPath)) delete agents[k];
+    } else if (!x.device_id && x.userId === p.userId && (x.device || '咕嘎本体') === device) {
+      delete agents[k];
+    }
   }
   const caps = (req.body || {}).caps || null;
   agents[token] = {
     id: crypto.randomBytes(4).toString('hex'),   // 稳定设备 id：派单/领单按 id 锁定，不依赖可能重名的设备名
+    device_id: devId,                            // 客户端上报的稳定机器标识（同名设备靠它区分共存）
     userId: p.userId,
     device,
-    path: String((req.body || {}).path || '').slice(0, 200),   // 本体在自己电脑上的文件夹（网页可指路找回）
+    path: rawPath,                               // 本体在自己电脑上的文件夹（网页可指路找回）
     caps: caps && typeof caps === 'object' ? {                 // 本机能力：Python 版本 + 真机指挥依赖是否齐备
       pyver: String(caps.pyver || '').slice(0, 20),
       platform: String(caps.platform || '').slice(0, 20),
@@ -1542,6 +1843,42 @@ app.post('/api/agent/pair', ipLimit(1200), pairGuard, (req, res) => {
   saveExecutorStatus();
   console.log(`[agent] 本机执行方已配对: ${agents[token].device} → 账号 ${p.userId}`);
   res.json({ token, user: p.userId });
+});
+
+/* 本体上报本机可用的 AI 软件清单（跨设备派单的依据）。
+ * 兼容：旧版本体从不调用此接口 → inventory.json 不存在 → 跨设备派单不会做工具校验，行为与升级前一致。
+ * 注：全局 body 上限 64kb 已够用（单台电脑的 AI 软件清单通常 10~50 条），这里不再单独放宽。 */
+app.post('/api/agent/inventory', agentAuth, (req, res) => {
+  const body = req.body || {};
+  const raw = Array.isArray(body.items) ? body.items : (Array.isArray(body.tools) ? body.tools : []);
+  const seen = new Set();
+  const items = [];
+  for (const r of raw.slice(0, INVENTORY_MAX_TOOLS * 2)) {
+    const it = normToolItem(r);
+    if (!it) continue;
+    const k = normToolName(it.name) + '|' + normToolName(it.launch);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    items.push(it);
+    if (items.length >= INVENTORY_MAX_TOOLS) break;
+  }
+  const key = inventoryKey(req.agent);
+  if (!key) return res.status(400).json({ error: '设备标识缺失，请重新配对后再上报' });
+  const all = loadJSON('inventory.json', {});
+  all[key] = {
+    deviceId: key,
+    device_id: req.agent.device_id || '',
+    userId: req.agent.userId,
+    device: req.agent.device || '咕嘎本体',
+    updatedAt: Date.now(),
+    items,
+  };
+  for (const k of Object.keys(all)) {
+    if (Date.now() - (all[k].updatedAt || 0) > INVENTORY_TTL) delete all[k];
+  }
+  saveJSON('inventory.json', all);
+  saveAgentPatch(req.agentToken, { toolsAt: all[key].updatedAt, toolsCount: items.length });
+  res.json({ ok: true, deviceId: key, device: all[key].device, count: items.length, updatedAt: all[key].updatedAt });
 });
 
 // 心跳 + 领单：本体每 4 秒一拍，有本机子任务就领走
@@ -1565,7 +1902,15 @@ app.post('/api/agent/beat', agentAuth, (req, res) => {
   gcPausedTasks();   // 暂停超时的单趁心跳顺手清理
   if (req.body && req.body.busy) {
     // 保活心跳（干活期间由保活线程拍）：只刷在线状态，绝不派新单——否则一台电脑同时干两单
-    return res.json({ job: null, serverTime: Date.now() });
+    // 同时刷新"仍在干活"的存活时间：真在跑的长任务（如 WorkBuddy 出 PPT 13 分钟）不许被判死
+    const now = Date.now();
+    for (const task of tasks) {
+      if (task.finishedAt || task.demo) continue;
+      for (const st of task.subtasks || []) {
+        if (st.executor === '本机执行' && st.status === 'running' && st.claimedBy === req.agent.id) st.lastAliveAt = now;
+      }
+    }
+    return res.json({ job: null, serverTime: now });
   }
   const uid = req.agent.userId;
   for (const task of tasks) {
@@ -1576,6 +1921,8 @@ app.post('/api/agent/beat', agentAuth, (req, res) => {
     const st = task.subtasks.find(s => s.executor === '本机执行' && s.status === 'running' && !s.localClaimed);
     if (st) {
       st.localClaimed = true;
+      st.claimedBy = req.agent.id;      // 谁领的这单：保活心跳按设备 id 精确刷新存活时间
+      st.lastAliveAt = Date.now();
       st.pauseRequested = false;   // 新一轮领单不继承旧的暂停请求
       saveJSON('tasks.json', tasks);
       return res.json({ job: {
@@ -1601,18 +1948,32 @@ app.post('/api/agent/result', agentAuth, async (req, res) => {
   if (!st) return res.status(404).json({ error: '子任务不存在' });
   const key = task.id + ':' + st.id;
 
+  const failNote = String((req.body || {}).note || '未说明原因');
+  // 用户主动中止 ≠ 执行失败：不得再自动重派（否则用户按了停止，服务端还会连续重试 3 次）
+  const aborted = !!(req.body || {}).aborted || /^(已中止|用户终止|Stopped)/.test(failNote);
   if (!ok || !content.trim()) {
-    if (st.attempts >= MAX_ATTEMPTS) {
+    if (aborted || st.attempts >= MAX_ATTEMPTS) {
       st.status = 'error';
-      st.checkResult = '本机执行方连续 ' + MAX_ATTEMPTS + ' 次未能完成（' + String((req.body || {}).note || '未说明原因').slice(0, 50) + '）';
-      task.log.push({ ts: Date.now(), kind: 'warn', text: `⚠ 「${st.name}」本机执行连续 ${MAX_ATTEMPTS} 次失败：${st.checkResult}（已如实上报少爷，本单继续走剩余子任务）` });
+      st.finishedAt = Date.now();
+      st.localClaimed = false;
+      st.claimedBy = '';
+      st.checkResult = aborted
+        ? '用户中止本轮操作（不自动重试）：' + failNote.slice(0, 50)
+        : '本机执行方连续 ' + MAX_ATTEMPTS + ' 次未能完成（' + failNote.slice(0, 50) + '）';
+      task.log.push({ ts: Date.now(), kind: 'warn', text: aborted
+        ? `⏹ 「${st.name}」${st.checkResult}，本单按中止收尾`
+        : `⚠ 「${st.name}」本机执行连续 ${MAX_ATTEMPTS} 次失败：${st.checkResult}（已如实上报少爷，本单继续走剩余子任务）` });
       inflight.delete(key);
+      finishCheck(task);
       saveJSON('tasks.json', tasks);
       setImmediate(schedule);
-      return res.json({ ok: true, accepted: 'failed' });
+      return res.json({ ok: true, accepted: aborted ? 'aborted' : 'failed' });
     }
     st.status = 'returned';
-    st.feedback = '本机执行方回报失败：' + String((req.body || {}).note || '未说明原因').slice(0, 60);
+    st.finishedAt = 0;
+    st.localClaimed = false;
+    st.claimedBy = '';
+    st.feedback = '本机执行方回报失败：' + failNote.slice(0, 60);
     task.log.push({ ts: Date.now(), kind: 'warn', text: `⚠ 本机执行方未能完成「${st.name}」，咕嘎已收回重新派发` });
     inflight.delete(key);
     saveJSON('tasks.json', tasks);
@@ -1628,11 +1989,15 @@ app.post('/api/agent/result', agentAuth, async (req, res) => {
   saveJSON('tasks.json', tasks);
 
   let verdict;
-  try { verdict = await withSlot(() => llmJSON(reviewMessages(task, st, content))); }
+  try { verdict = await withSlot(() => llmJSON(reviewMessages(task, st, content), undefined,
+    { user: task.userId, kind: 'review', taskId: task.id })); }
   catch { verdict = { pass: false, reason: '核对通道波动，本轮先打回，复核后重新交付' }; }
   st.checkResult = String(verdict.reason || '').slice(0, 80);
   if (verdict.pass || st.attempts >= MAX_ATTEMPTS) {
     st.status = 'done';
+    st.finishedAt = Date.now();
+    st.localClaimed = false;
+    st.claimedBy = '';
     if (!verdict.pass) st.checkResult = '三次交付仍未完全达标，咕嘎标记异常并如实上报少爷';
     task.log.push({
       ts: Date.now(), kind: verdict.pass ? 'good' : 'warn',
@@ -1642,8 +2007,10 @@ app.post('/api/agent/result', agentAuth, async (req, res) => {
     });
   } else {
     st.status = 'returned';
+    st.finishedAt = 0;
     st.feedback = st.checkResult;
     st.localClaimed = false;
+    st.claimedBy = '';
     task.log.push({ ts: Date.now(), kind: 'warn', text: `❌ 验收打回：「${st.name}」${st.checkResult}，已带意见重新派给本机执行方` });
   }
   inflight.delete(key);
@@ -1655,18 +2022,22 @@ app.post('/api/agent/result', agentAuth, async (req, res) => {
 // 暂停超时 GC：少爷暂停后 15 分钟没点"继续"，进度按丢弃清理（beat/schedule 双时机惰性触发）
 function gcPausedTasks() {
   let dirty = false;
+  const finishThese = new Set();
   for (const task of tasks) {
     if (task.finishedAt || task.demo) continue;
     for (const st of task.subtasks || []) {
       if (st.status === 'paused' && Date.now() - (st.pausedAt || 0) > PAUSE_TTL_MS) {
         st.status = 'error';
+        st.finishedAt = Date.now();
         st.checkResult = '暂停超过 15 分钟未继续，进度已按丢弃清理（重新派单即可）';
         st.pauseCtx = '';
         task.log.push({ ts: Date.now(), kind: 'warn', text: `🧹 「${st.name}」暂停超时未继续，已自动清理回收（少爷可重新派单）` });
+        finishThese.add(task);
         dirty = true;
       }
     }
   }
+  for (const task of finishThese) finishCheck(task);
   if (dirty) saveJSON('tasks.json', tasks);
   return dirty;
 }
@@ -1674,10 +2045,17 @@ function gcPausedTasks() {
 // 本体询问控制指令：执行器在每轮对话边界查询，少爷按了暂停就本轮收尾即停（最多等当前步骤两三分钟）
 app.post('/api/agent/ctl', agentAuth, (req, res) => {
   const taskId = String((req.body || {}).taskId || '');
+  const stId = String((req.body || {}).stId || '');
   const task = tasks.find(t => t.id === taskId && t.userId === req.agent.userId);
-  const st = task && (task.subtasks || []).find(s => s.executor === '本机执行');
+  // 优先按执行器回报的 stId 定位；旧版只带 taskId 时，必须找"正在干/已暂停"的那一步，
+  // 不能盲取第一个本机子任务——多子任务时会把已完成的旧步骤当成当前步骤，导致暂停指令永远返回 go
+  const st = task && (stId
+    ? task.subtasks.find(s => s.id === stId)
+    : (task.subtasks.find(s => s.executor === '本机执行' && s.status === 'running')
+       || task.subtasks.find(s => s.executor === '本机执行' && s.status === 'paused')
+       || task.subtasks.find(s => s.executor === '本机执行')));
   const wantPause = st && (st.pauseRequested || st.status === 'paused');
-  res.json({ action: wantPause ? 'pause' : 'go' });
+  res.json({ action: wantPause ? 'pause' : 'go', stId: st ? st.id : '' });
 });
 
 // 本体确认暂停：进度与下一步落进台账存档——15 分钟内点"继续"无缝接续，超时自动清理
@@ -1689,6 +2067,7 @@ app.post('/api/agent/paused', agentAuth, (req, res) => {
   st.status = 'paused';
   st.pausedAt = Date.now();
   st.localClaimed = false;
+  st.claimedBy = '';
   st.pauseRequested = false;
   st.pauseCtx = String((req.body || {}).ctx || '').slice(0, 400);
   task.log.push({ ts: Date.now(), kind: 'warn', text: `⏸ 少爷暂停了「${st.name}」——进度已记录（${st.pauseCtx.slice(0, 90)}）。15 分钟内点"继续"无缝接续，超时自动丢弃清理` });
@@ -1726,7 +2105,7 @@ app.post('/api/task-pause', auth, rateLimit(1500), (req, res) => {
 // 本体请示（不要剧本，要会读）：本机执行方拿到豆包回复后先问大脑——
 // 这是完整交付，还是豆包在反问索要信息？追问话术由大脑代少爷拟好
 //（按总目标自拟信息/直接让它开写），绝不把皮球踢回给用户，杜绝"豆包要主题→打回→再派→豆包再要"死循环。
-app.post('/api/agent/consult', agentAuth, async (req, res) => {
+app.post('/api/agent/consult', agentAuth, agentCloudGate('consult'), async (req, res) => {
   const reply = String((req.body || {}).reply || '').slice(0, 3000);
   const goal = String((req.body || {}).goal || '').slice(0, 120);
   const name = String((req.body || {}).name || '').slice(0, 24);
@@ -1739,7 +2118,7 @@ app.post('/api/agent/consult', agentAuth, async (req, res) => {
         `{"type":"deliverable"} —— 回复已包含实质交付内容（正文/答案/成果），哪怕偏短；\n` +
         `{"type":"followup","text":"..."} —— ${appName}在索要信息、反问、或只给了提纲/选项没给正文。text 是要粘贴回${appName}输入框的下一句话（中文、100字内、命令式），必须替用户把信息补全：根据总目标自行合理拟定（自拟主题、自选风格、直接让它开写），绝不允许向用户反问。\n只输出 JSON。` },
       { role: 'user', content: `总目标：${goal}\n子任务：${name}\n验收标准：${acceptance}\n\n${appName}的最新回复：\n${reply}` },
-    ]));
+    ], undefined, { user: req.agent && req.agent.userId, kind: 'consult' }));
     if (v && v.type === 'followup' && v.text) {
       return res.json({ type: 'followup', text: String(v.text).slice(0, 300) });
     }
@@ -1756,7 +2135,7 @@ function agentHistory(userId) {
   return Object.values(loadJSON('agents.json', {}))
     .filter(x => x.userId === userId && Date.now() - (x.lastSeen || 0) < AGENT_SHOW_TTL)
     .sort((x, y) => (y.lastSeen || 0) - (x.lastSeen || 0))
-    .filter(x => { const k = x.device || '咕嘎本体'; if (seen.has(k)) return false; seen.add(k); return true; })
+    .filter(x => { const k = x.id || x.device || '咕嘎本体'; if (seen.has(k)) return false; seen.add(k); return true; })
     .slice(0, 3)
     .map(x => ({
       device: x.device || '咕嘎本体',
@@ -1790,18 +2169,80 @@ app.get('/api/agent/devices', auth, (req, res) => {
   res.json({ devices: agentsOnlineOf(req.user).map(deviceView) });
 });
 
-// 模型配置：查看（Key 打码）/ 保存并测试（咕嘎当壳，模型用户自带）
-app.get('/api/llm', auth, (req, res) => {  res.json({
-    configured: llmReady(),
-    baseUrl: llmCfg.baseUrl || '',
-    model: llmCfg.model || '',
-    apiKeyMasked: llmCfg.apiKey ? '••••••' + llmCfg.apiKey.slice(-4) : '',
+/* 设备软件清单 · 按账号读取：哪些设备、各有什么 AI 软件、几点上报的、在不在线
+ * 数据来源：agents.json（配对记录/在线状态）+ inventory.json（本体上报的软件清单，按稳定设备标识归账）。
+ * 兼容：旧版本体不上报 → tools 为空数组、hasInventory=false，其余字段与旧版 deviceView 完全一致。
+ * 过滤：?device_id=xxx 或 ?id=xxx 或 ?device=设备名；不带参数返回本账号全部相关设备。 */
+app.get('/api/devices/inventory', auth, (req, res) => {
+  const agents = loadJSON('agents.json', {});
+  const inv = loadJSON('inventory.json', {});
+  const now = Date.now();
+  const dedup = new Map();   // 旧记录可能同设备多条：取最近心跳的那条
+  for (const tok of Object.keys(agents)) {
+    const a = agents[tok];
+    if (a.userId !== req.user) continue;
+    const online = now - (a.lastSeen || 0) < AGENT_ONLINE_MS;
+    const key = inventoryKey(a);
+    const rec = key ? inv[key] : null;
+    const fresh = !!(rec && now - (rec.updatedAt || 0) < AGENT_SHOW_TTL);
+    if (!online && !fresh) continue;   // 既不在线、清单也已陈旧：不再列出，免得陈年设备误导
+    const dk = inventoryKey(a) || a.device || '咕嘎本体';
+    const prev = dedup.get(dk);
+    if (prev && (prev.lastSeen || 0) >= (a.lastSeen || 0)) continue;
+    dedup.set(dk, Object.assign(deviceView(a), {
+      online,
+      device_id: a.device_id || '',
+      hasInventory: !!(rec && Array.isArray(rec.items) && rec.items.length),
+      inventoryAt: (rec && rec.updatedAt) || 0,
+      toolsCount: rec && Array.isArray(rec.items) ? rec.items.length : 0,
+      tools: rec && Array.isArray(rec.items) ? rec.items : [],   // [{name, launch, version, path, summary, aliases, updatedAt}]
+    }));
+  }
+  const want = String(req.query.device_id || req.query.id || req.query.device || '').trim();
+  let list = Array.from(dedup.values());
+  if (want) list = list.filter(d => d.id === want || d.device_id === want || d.device === want);
+  list.sort((x, y) => (y.online ? 1 : 0) - (x.online ? 1 : 0) || (y.lastSeen || 0) - (x.lastSeen || 0));
+  res.json({
+    devices: list,
+    total: list.length,
+    online: list.filter(d => d.online).length,
+    withInventory: list.filter(d => d.hasInventory).length,
   });
 });
-app.post('/api/llm', auth, rateLimit(2000), async (req, res) => {
+
+// 模型配置：查看（仅管理员可见完整地址与 Key 后四位）/ 保存并测试（仅管理员可写）
+app.get('/api/llm', auth, (req, res) => {
+  let host = '';
+  try { host = llmCfg.baseUrl ? new URL(llmCfg.baseUrl).hostname : ''; } catch { /* 地址异常则留空 */ }
+  if (isAdmin(req.user)) {
+    return res.json({
+      configured: llmReady(),
+      baseUrl: llmCfg.baseUrl || '',
+      model: llmCfg.model || '',
+      apiKeyMasked: llmCfg.apiKey ? '••••••' + llmCfg.apiKey.slice(-4) : '',
+    });
+  }
+  // 非管理员：不返回完整 Base URL，不返回 Key 后四位（只给是否就绪 + 模型名 + 站点域名）
+  res.json({ configured: llmReady(), model: llmCfg.model || '', baseUrlHost: host });
+});
+app.post('/api/llm', auth, requireAdmin, rateLimit(2000), async (req, res) => {
   const b = req.body || {};
-  const baseUrl = String(b.baseUrl || '').trim().replace(/\/+$/, '');
-  const apiKey = String(b.apiKey || '').trim() || llmCfg.apiKey;   // 留空沿用旧 Key
+  /* base_url 归一化：剥离用户可能粘贴的完整端点后缀（.../chat/completions），
+   * 对已知域名（maas.qianwenaiapi.com 等）自动补 /compatible-mode/v1 根路径，
+   * 避免拼出双段路径导致 404/405。 */
+  const baseNorm = normalizeBaseUrl(String(b.baseUrl || '').trim());
+  if (!baseNorm.ok) return res.status(400).json({ error: '接口地址不合法：' + baseNorm.error });
+  const baseUrl = baseNorm.base;
+  const providedKey = String(b.apiKey || '').trim();
+  const oldBaseUrl = normalizeBaseUrl(llmCfg.baseUrl).base || (llmCfg.baseUrl || '').replace(/\/+$/, '');
+  // 换了接口地址就必须显式提交新 Key：禁止"留空沿用运营方 Key + 任意新 baseUrl"的组合
+  if (!providedKey && baseUrl !== oldBaseUrl) {
+    return res.status(400).json({
+      error: '修改接口地址时必须同时提供新的 API Key（不允许把原 Key 发往新地址）',
+      code: 'BASEURL_REQUIRES_NEW_KEY',
+    });
+  }
+  const apiKey = providedKey || llmCfg.apiKey;   // 仅当地址未变时允许留空沿用旧 Key
   const model = String(b.model || '').trim();
   if (!/^https?:\/\/.+/.test(baseUrl)) return res.status(400).json({ error: '接口地址须为 http(s) 开头的完整 URL' });
   // SSRF 防护：拒绝本机/内网/链路本地地址（服务器只帮您连公网模型接口）
@@ -1816,23 +2257,35 @@ app.post('/api/llm', auth, rateLimit(2000), async (req, res) => {
   }
   if (!apiKey) return res.status(400).json({ error: 'API Key 不能为空' });
   if (!model) return res.status(400).json({ error: '请填写模型名，如 glm-4-flash' });
-  // 真实连通性测试：最小调用一次
+  // 真实连通性测试：最小调用一次（保留 POST 跟随重定向，避免 Node fetch 把 POST 改 GET 返回 405）
   const old = { ...llmCfg };
   Object.assign(llmCfg, { baseUrl, apiKey, model });
   let test = { ok: true, note: '' };
   try {
     const controller = new AbortController();
     const killer = setTimeout(() => controller.abort(), 20000);
-    const r = await fetch(baseUrl + '/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
-      body: JSON.stringify({ model, messages: [{ role: 'user', content: '回复两个字：收到' }], max_tokens: 8 }),
-      signal: controller.signal,
-    });
+    let currentUrl = baseUrl + '/chat/completions';
+    let r;
+    const redirects = [];
+    for (let hop = 0; hop <= 2; hop++) {
+      r = await fetch(currentUrl, { method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + apiKey },
+        body: JSON.stringify({ model, messages: [{ role: 'user', content: '回复两个字：收到' }], max_tokens: 8 }),
+        signal: controller.signal,
+      });
+      if (![301, 302, 303, 307, 308].includes(r.status)) break;
+      const location = r.headers.get('Location');
+      if (!location) break;
+      redirects.push({ status: r.status, from: currentUrl, to: location });
+      currentUrl = new URL(location, currentUrl).toString();
+      try { r.body && await r.body.cancel(); } catch {}
+    }
     clearTimeout(killer);
     if (!r.ok) {
       const t = await r.text().catch(() => '');
-      test = { ok: false, note: `HTTP ${r.status} ${t.slice(0, 80)}` };
+      let note = `HTTP ${r.status} ${t.slice(0, 80)}`;
+      if (redirects.length) note += `（重定向 ${redirects.length} 次后仍失败：${redirects.map(x => x.status + '→' + x.to).join(' → ')}）`;
+      test = { ok: false, note };
     }
   } catch (e) {
     test = { ok: false, note: '连不上：' + String(e.message || e).slice(0, 60) };
@@ -1841,6 +2294,31 @@ app.post('/api/llm', auth, rateLimit(2000), async (req, res) => {
   saveLLMCfg();
   console.log(`[llm] 模型已由用户(${req.user})更新: ${model} @ ${baseUrl}`);
   res.json({ ok: true, model, baseUrl, apiKeyMasked: '••••••' + apiKey.slice(-4) });
+});
+
+// 云端用量查询：普通账号看自己；管理员可 ?user=<账号> 查指定账号，?all=1 看全部账号汇总
+app.get('/api/usage', auth, (req, res) => {
+  const admin = isAdmin(req.user);
+  if (admin && String(req.query.all || '') === '1') {
+    return res.json({
+      accounts: users.map(u => ({
+        username: u.username, role: u.role || '',
+        cloudEntitled: u.cloudEntitled === true,
+        cloudQuota: u.cloudQuota === undefined ? null : u.cloudQuota,
+        cloudUsed: Number(u.cloudUsed || 0),
+      })),
+      totalCalls: usage.length,
+    });
+  }
+  const want = String(req.query.user || '').trim();
+  const target = (want && admin) ? want : req.user;
+  const c = cloudInfo(target);
+  const mine = usage.filter(x => x.user === target);
+  res.json({
+    user: target, entitled: c.entitled, quota: c.quota, used: c.used, calls: mine.length,
+    records: mine.slice(-50).reverse(),
+    ...(admin ? { viewAsAdmin: true } : {}),
+  });
 });
 
 // 清空台账（可按空间；连同产物文件一起删除；只清自己的，不动别人）
@@ -1897,6 +2375,7 @@ app.post('/api/verdict', auth, rateLimit(1500), (req, res) => {
   if (task.demo && action !== 'approve') return res.status(400).json({ error: '演示剧本任务不支持批注重做' });
   if (action === 'approve') {
     st.status = 'done';
+    st.finishedAt = Date.now();
     st.overdue = false;
     st.checkResult = '👤 少爷亲自验收通过' + (comment ? '：' + comment : '');
     task.log.push({ ts: Date.now(), kind: 'good', text: `👤 少爷批示「${st.name}」：验收通过${comment ? '——' + comment.slice(0, 60) : ''}` });
@@ -1912,6 +2391,7 @@ app.post('/api/verdict', auth, rateLimit(1500), (req, res) => {
     st.feedback = '少爷批注（必须优先落实）：' + (comment || '请对照验收标准逐项自查后重新交付');
     if ((st.attempts || 0) >= MAX_ATTEMPTS) st.attempts = MAX_ATTEMPTS - 1;   // 特批一次返工额度
     st.status = 'returned';
+    st.finishedAt = 0;
     st.rerunAt = Date.now() + 800;
     inflight.delete(task.id + ':' + st.id);
     task.log.push({ ts: Date.now(), kind: 'warn', text: `👤 少爷批注打回「${st.name}」，工人带批示重做：${st.feedback.slice(0, 70)}` });
@@ -1919,6 +2399,7 @@ app.post('/api/verdict', auth, rateLimit(1500), (req, res) => {
     st.attempts = 0;
     st.feedback = comment ? '少爷换将重派批注：' + comment : '少爷裁决：换将重派，按验收标准从头执行';
     st.status = 'returned';
+    st.finishedAt = 0;
     st.rerunAt = Date.now() + 800;
     inflight.delete(task.id + ':' + st.id);
     task.log.push({ ts: Date.now(), kind: 'warn', text: `👥 少爷裁决「${st.name}」换将重派${comment ? '（' + comment.slice(0, 40) + '）' : ''}，新工人即将领单` });
@@ -1963,7 +2444,7 @@ app.get('/api/crew', auth, (req, res) => {
 /* ---------------- 双模型同题对比（呼应"咕嘎是壳，模型自带"） ----------------
  * 同一目标同一拆解，甲=服务器默认模型，乙=您在⚙配置的模型，同题同预算对跑，
  * 两单都完结后可让咕嘎当裁判出对比结论。 */
-app.post('/api/compare', auth, rateLimit(8000), async (req, res) => {
+app.post('/api/compare', auth, requireCloud, rateLimit(8000), async (req, res) => {
   const goal = String((req.body || {}).goal || '').trim();
   if (!goal) return res.status(400).json({ error: '请输入对比目标' });
   if (!llmReady()) return res.status(400).json({ error: '模型未就绪，请先在 ⚙ 完成配置' });
@@ -1971,7 +2452,7 @@ app.post('/api/compare', auth, rateLimit(8000), async (req, res) => {
   if (!isCustom) return res.status(400).json({ error: '当前只有一个模型——请先在 ⚙ 模型配置 接入您自己的模型，再和咕嘎默认模型同题对比' });
   if (DANGER_RE.test(goal) || DANGER_FILE_RE.test(goal)) return res.status(400).json({ error: '对比目标涉及不可逆操作，咕嘎不受理' });
   try {
-    const plan = await llmJSON(planPrompt(goal, req.user));   // 同一套拆解，保证只比模型不比拆解
+    const plan = await llmJSON(planPrompt(goal, req.user), undefined, { user: req.user, kind: 'compare-plan' });   // 同一套拆解，保证只比模型不比拆解
     const subs = Array.isArray(plan.subtasks) ? plan.subtasks : [];
     if (!subs.length) throw new Error('拆解为空');
     const gid = 'cmp' + Date.now().toString(36);
@@ -1991,7 +2472,7 @@ app.post('/api/compare', auth, rateLimit(8000), async (req, res) => {
   }
 });
 
-app.post('/api/compare/verdict', auth, rateLimit(5000), async (req, res) => {
+app.post('/api/compare/verdict', auth, requireCloud, rateLimit(5000), async (req, res) => {
   const gid = String((req.body || {}).groupId || '');
   const pair = tasks.filter(t => t.userId === req.user && t.compare && t.compare.groupId === gid);
   if (pair.length !== 2) return res.status(400).json({ error: '对比组不存在' });
@@ -2004,7 +2485,7 @@ app.post('/api/compare/verdict', auth, rateLimit(5000), async (req, res) => {
     const verdict = await withSlot(() => llmStream([
       { role: 'system', content: '你是中立的模型评测裁判（咕嘎监工兼任）。对比两份同题成果：从结构完整性、内容质量、风格特点三方面点评（各一句），最后一句给出"推荐甲/推荐乙/难分伯仲"。总计 120 字内，直接输出结论。' },
       { role: 'user', content: `【题目】${pair[0].goal}\n\n【甲 · 模型 ${pair[0].compare.model}】\n${dump(pair[0]).slice(0, 2400)}\n\n【乙 · 模型 ${pair[1].compare.model}】\n${dump(pair[1]).slice(0, 2400)}` },
-    ], () => {}));
+    ], () => {}, undefined, { user: req.user, kind: 'compare-verdict' }));
     res.json({ verdict: String(verdict || '').trim() });
   } catch (e) {
     res.status(400).json({ error: '裁判通道波动，稍后再试' });
@@ -2077,7 +2558,7 @@ const DANGER_RE = /(格式化|重装系统|rm\s+-rf|清空磁盘|清空硬盘|�
 const DANGER_FILE_RE = /(删除|删掉|清空|移动|覆盖|格式化).{0,14}(盘|[CcDdEeFf]:|文件夹|目录|所有文件|全部文件|系统)/i;
 const pendingDanger = {};   // userId -> { goal, ts }，等待"确认"的危险目标（10 分钟有效）
 
-app.post('/api/chat', auth, rateLimit(3000), async (req, res) => {
+app.post('/api/chat', auth, requireCloud, rateLimit(3000), async (req, res) => {
   const message = String((req.body || {}).message || '').slice(0, 500);
   const space = String((req.body || {}).space || '').trim();
   let useLocal = String((req.body || {}).executor || '') === 'local';
@@ -2104,7 +2585,7 @@ app.post('/api/chat', auth, rateLimit(3000), async (req, res) => {
         const v = await llmJSON([
           { role: 'system', content: '把用户的话提炼成一条值得长期记住的偏好/事实（25字内、第三人称、以"少爷"开头）。与工作偏好、习惯、常用目标相关才记，闲聊不记。只输出 JSON：{"fact":"..."}，不值得记输出 {"fact":""}' },
           { role: 'user', content: message },
-        ]);
+        ], undefined, { user: req.user, kind: 'chat-memory' });
         fact = String(v.fact || '').trim();
       } catch { fact = ''; }
       if (fact && rememberFact(req.user, fact, '对话')) {
@@ -2118,7 +2599,7 @@ app.post('/api/chat', auth, rateLimit(3000), async (req, res) => {
     /* ① 大脑意图分析（work=转派 / clarify=反问确认 / chat=亲自开口） */
     let intent = null;
     if (llmReady() && !dangerConfirmed) {
-      try { intent = await llmJSON(intentMessages(message)); } catch { intent = null; }
+      try { intent = await llmJSON(intentMessages(message), undefined, { user: req.user, kind: 'intent' }); } catch { intent = null; }
     }
     const bare = message.replace(/[。，、.!！?？~\s]/g, '');
     const looksChat = /(你好|在吗|你是谁|进度|怎么样|如何|谢谢|辛苦|哈哈|什么是|是什么|干嘛|功能|能吗|能不|会不会|可以吗|可以么|吗？|\?)/.test(message);
@@ -2167,14 +2648,17 @@ app.post('/api/chat', auth, rateLimit(3000), async (req, res) => {
       res.write('data: ' + JSON.stringify({ dispatched: true }) + '\n\n');
       try {
         const { task, mode } = await dispatchGoal(req.user, goal, space, useLocal, dangerConfirmed, req.device,
-          String((req.body || {}).device || '').slice(0, 60));
+          String((req.body || {}).device || '').slice(0, 60), requiredToolsOf(req.body));
         const reply = dispatchReply(task, mode);
         for (const ch of reply.match(/.{1,6}/gs) || []) {
           res.write('data: ' + JSON.stringify({ delta: ch }) + '\n\n');
         }
         res.write('data: ' + JSON.stringify({ taskId: task.id }) + '\n\n');
       } catch (e) {
-        res.write('data: ' + JSON.stringify({ error: String(e.message || e).slice(0, 100) }) + '\n\n');
+        const out = { error: String(e.message || e).slice(0, 100) };
+        if (e.code) out.code = e.code;
+        if (Array.isArray(e.missing)) out.missing = e.missing;
+        res.write('data: ' + JSON.stringify(out) + '\n\n');
       }
       res.write('data: [DONE]\n\n');
       return res.end();
@@ -2211,7 +2695,7 @@ app.post('/api/chat', auth, rateLimit(3000), async (req, res) => {
         (recallFacts(req.user, 6).length ? '【咕嘎记住的少爷偏好（可自然引用，别生硬罗列）】\n' + recallFacts(req.user, 6).join('；') + '\n' : '') +
         '【当前监工中的任务】\n' + ctx },
       { role: 'user', content: message },
-    ], (d) => res.write('data: ' + JSON.stringify({ delta: d }) + '\n\n'));
+    ], (d) => res.write('data: ' + JSON.stringify({ delta: d }) + '\n\n'), undefined, { user: req.user, kind: 'chat' });
     res.write('data: [DONE]\n\n');
   } catch (e) {
     res.write('data: ' + JSON.stringify({ error: '模型服务暂时不可用，请稍后重试' }) + '\n\n');
@@ -2232,7 +2716,8 @@ app.post('/api/chat', auth, rateLimit(3000), async (req, res) => {
       for (const st of task.subtasks) {
         if (st.status === 'running' || st.status === 'review' || st.status === 'returned') {
           st.status = 'pending'; st.progress = 0; st.overdue = false;
-          st.localClaimed = false; st.rerunAt = 0;
+          st.localClaimed = false; st.rerunAt = 0; st.finishedAt = 0;
+          st.claimedBy = ''; st.lastAliveAt = 0;
           hit++; n++;
         }
       }

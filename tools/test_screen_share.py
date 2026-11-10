@@ -167,7 +167,7 @@ class ProactiveTests(unittest.TestCase):
         self.tmp=tempfile.TemporaryDirectory();self.memory=AgentMemoryStore(Path(self.tmp.name)/'memory.sqlite3')
         self.memory.add_dialogue('001','user','我最近在整理 AI 相关的学习资料。')
         self.panel=fake_panel(self.memory,voice_active=False)
-        self.proactive=ProactiveConversation(self.panel,self.memory);self.proactive.started_at=time.monotonic()-300
+        self.proactive=ProactiveConversation(self.panel,self.memory,interval_seconds=1);self.proactive.started_at=time.monotonic()-300
 
     def tearDown(self):self.proactive.stop();self.tmp.cleanup()
 

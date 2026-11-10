@@ -1,0 +1,9 @@
+{
+  "task_id": "T-20261108-072725-6b699c",
+  "goal": "读工作区根目录、用一句话说明这个项目",
+  "acceptance": "按需求完成，并在回执 self_check 里写清结果与产物路径",
+  "deadline": "",
+  "callback": "guga:desk",
+  "workspace": "D:\\rengongzhineng",
+  "idem_key": "goal-e74ec8b5f84111c1"
+}

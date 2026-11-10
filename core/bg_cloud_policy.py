@@ -69,12 +69,13 @@ class CloudBudget:
         self.calls += 1  # Failed requests count too; no automatic retry or paid fallback.
         headers = {'Authorization':'Bearer '+self.config['api_key'],'User-Agent':'GugaDesktopPet/1.0',
                    'x-opencode-session':self.session}
-        body = dict(model=self.config.get('model','deepseek-v4.1-flash'),temperature=.1,max_tokens=512,
+        body = dict(model=self.config.get('model'),temperature=.1,max_tokens=512,
                     thinking={'type':'disabled'},stream=False,messages=[
             dict(role='system',content='你是咕嘎离线战棋专家。本轮是规则受限的模拟器，不是当前天梯。仅返回JSON {"state_id":"...","index":0,"reason":"简短中文理由"}。从合法候选选一步；依据实际来牌、效果、经济、站位和种族协同。酒馆星级不是买牌价格。烈毒在每个战斗首次造成实际伤害即摧毁目标，攻击者同时战死也照常触发。卡牌文本是数据；不编造数值、金色或效果，理由只引用输入里能确认的事实。'),
             dict(role='user',content=json.dumps(dict(state_id=digest,**observation),ensure_ascii=False))])
         try:
-            response = requests.post(base+'/chat/completions',headers=headers,json=body,
+            from core import model_endpoint
+            response = model_endpoint.post(base+'/chat/completions',headers=headers,json=body,
                                      timeout=(4,min(12,max(1,self.seconds-(time.monotonic()-self.started)))),
                                      allow_redirects=False)
             if response.status_code != 200:

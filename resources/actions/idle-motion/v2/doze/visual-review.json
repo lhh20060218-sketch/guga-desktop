@@ -1,0 +1,27 @@
+{
+  "schema": 2,
+  "status": "approved",
+  "reviewer": "Codex visual review + user direction",
+  "playback": "once",
+  "frames_sha256": "320242d5758ed34a2e7202b2018fa47de6afa887d5fb40af495196176ecdacb0",
+  "checks": {
+    "identity": true,
+    "continuous_motion": true,
+    "no_ghosts": true,
+    "anatomy": true,
+    "entry_exit_transition": false,
+    "transition_variation_accepted": true,
+    "loop_seam": false,
+    "canvas_matches_v2": true
+  },
+  "user_approval": {
+    "by": "user",
+    "quote": "把这两个生成的动图，放入咕嘎的自然常态触发动作里，跟dsh pet 一样",
+    "scope": "Both supplied Doubao animations as natural idle triggers"
+  },
+  "notes": [
+    "239 native 24fps frames; normalized to fixed 245x352 canvas",
+    "No temporal blending or repeated frames; one-shot with resident recovery"
+  ],
+  "note": "2026-11-07 统一到 v2 规格：画布 458x660、脚底基线 620、角色高度 537（仅重排画布，抠像/帧数/时长不变）"
+}

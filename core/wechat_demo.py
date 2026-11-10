@@ -2,6 +2,12 @@
 import base64,json,os,subprocess,tempfile,time,re
 from pathlib import Path
 ROOT=Path(__file__).resolve().parents[1]
+try:
+    from core import guga_paths
+    OCR_ROOT=guga_paths.RUNTIME/'chat/ocr'
+except Exception:
+    _base=Path(os.environ.get('LOCALAPPDATA') or os.environ.get('APPDATA') or Path.home())
+    OCR_ROOT=_base/'GUGA'/'runtime'/'chat'/'ocr'
 
 def is_self_message_request(prompt):
     from core.fast_commands import command_text
@@ -27,7 +33,7 @@ def phrase_boxes(ocr,phrase):
     return result
 
 def read_frame(observation):
-    folder=ROOT/'runtime/chat/ocr';folder.mkdir(parents=True,exist_ok=True)
+    folder=OCR_ROOT;folder.mkdir(parents=True,exist_ok=True)
     with tempfile.NamedTemporaryFile(suffix='.jpg',dir=folder,delete=False) as handle:
         path=Path(handle.name);handle.write(base64.b64decode(observation['_image_url'].split(',',1)[1]))
     try:
@@ -56,20 +62,31 @@ def send_message(computer,recipient,text,cancel,prepare_only=False,chat=None):
     def observe():
         obs=computer.execute(dict(action='observe',hwnd=hwnd),cancel)
         return obs,read_frame(obs)
+    def observe_until(predicate,attempts=2,gap=.28):
+        """Replace fixed sleeps: re-read only when the expected state is absent."""
+        result=None
+        for index in range(attempts):
+            result=observe()
+            if predicate(*result):return result+(True,)
+            if index+1<attempts:cancel.wait(gap)
+        return result+(False,)
+    def header_visible(ocr,w,h):
+        return any(box['x']>w*.2 and box['y']<h*.23 for box in phrase_boxes(ocr,compact(recipient)))
     obs,ocr=observe();width,height=obs['image_size']
     if not chat:
         search_words=[w for w in phrase_boxes(ocr,'搜索') if w['x']<width*.35 and w['y']<height*.25]
         if not search_words:raise RuntimeError('未定位微信顶部搜索框；未发送')
         search=search_words[0]
         computer.execute(dict(action='fill',observation_id=obs['observation_id'],x=int(search['x']+search['width']/2),y=int(search['y']+search['height']/2),text=recipient),cancel)
-        cancel.wait(.4);obs,ocr=observe()
+        obs,ocr,ready=observe_until(lambda o,c:bool([box for box in phrase_boxes(c,compact(recipient)) if box['x']<width*.35 and box['y']>height*.13]))
         contacts=[box for box in phrase_boxes(ocr,compact(recipient)) if box['x']<width*.35 and box['y']>height*.13]
-        if not contacts:raise RuntimeError('搜索结果未找到匹配聊天对象；未输入或发送')
+        if not ready or not contacts:raise RuntimeError('搜索结果未找到匹配聊天对象；未输入或发送')
         contact=min(contacts,key=lambda box:box['y'])
         computer.execute(dict(action='click',observation_id=obs['observation_id'],x=int(contact['x']+contact['width']/2),y=int(contact['y']+contact['height']/2)),cancel)
-        cancel.wait(.2);obs,ocr=observe();width,height=obs['image_size']
+        obs,ocr,ready=observe_until(lambda o,c:header_visible(c,*o['image_size']))
+        width,height=obs['image_size']
     # Require the actual conversation header, not a matching sidebar contact.
-    header=any(box['x']>width*.2 and box['y']<height*.23 for box in phrase_boxes(ocr,compact(recipient)))
+    header=header_visible(ocr,width,height)
     if not header:raise RuntimeError('顶部会话名未验证为指定对象，未输入或发送')
     if prepare_only:return dict(ok=True,ready_for_message=True,recipient=recipient,hwnd=hwnd,_image_url=obs['_image_url'],message='已进入首个匹配会话并核对标题；现在根据用户要求组织正文，再调用send')
     input_words=[w for w in phrase_boxes(ocr,'发送') if w['y']>height*.6]
@@ -79,19 +96,26 @@ def send_message(computer,recipient,text,cancel,prepare_only=False,chat=None):
     draft=compact(bottom).replace('长按鼠标语音输入','')
     if draft:raise RuntimeError('输入区域存在未处理草稿；保留草稿，未继续发送')
     computer.execute(dict(action='fill',observation_id=obs['observation_id'],x=x,y=y,text=text),cancel)
-    obs,ocr=observe()
-    if not any(b['x']>width*.2 and b['y']<height*.23 for b in phrase_boxes(ocr,compact(recipient))):
+    def echoed(state):
+        o,c=state
+        w,h=o['image_size']
+        if not header_visible(c,w,h):return False
+        lines=[l for l in c.get('lines',[]) if l.get('words') and min(word['y'] for word in l['words'])>h*.65]
+        return compact(text) in compact(''.join(l['text'] for l in lines))
+    obs,ocr,ready=observe_until(echoed)
+    if not header_visible(ocr,width,height):
         return dict(ok=False,error='输入后会话对象发生变化；未点击发送',sent=False)
     # Send only text that actually appeared in the composer.
-    if compact(text) not in compact(''.join(l['text'] for l in ocr.get('lines',[]) if l.get('words') and min(w['y'] for w in l['words'])>height*.65)):
+    if not ready:
         return dict(ok=False,error='输入内容未通过回读；未点击发送，请检查草稿',sent=False)
     buttons=[w for w in phrase_boxes(ocr,'发送') if w['y']>height*.6]
     if not buttons:raise RuntimeError('发送按钮已变化；未发送')
     button=max(buttons,key=lambda w:w['x'])
     computer.execute(dict(action='click',observation_id=obs['observation_id'],x=int(button['x']+button['width']/2),y=int(button['y']+button['height']/2)),cancel)
-    cancel.wait(.7);obs,ocr=observe()
-    transcript=compact(''.join(l['text'] for l in ocr.get('lines',[]) if l.get('words') and min(w['y'] for w in l['words'])<button['y']-40))
-    found=compact(text) in transcript
+    def visible_in_chat(state):
+        o,c=state
+        return compact(text) in compact(''.join(l['text'] for l in c.get('lines',[]) if l.get('words') and min(w['y'] for w in l['words'])<button['y']-40))
+    obs,ocr,found=observe_until(visible_in_chat,attempts=3,gap=.35)
     return dict(ok=found,recipient=recipient,send_clicked=True,verified_message_visible=found,
         delivery_verified=False,message='消息已出现在指定聊天区；不代表服务器送达确认' if found else '已点击发送，但未回读到消息；请检查，不会自动重发')
 

@@ -11,7 +11,14 @@ import json
 import os
 import time
 
-_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'match_history.json')
+_LEGACY_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'data', 'match_history.json')
+try:  # 战绩属运行期数据：写用户目录，读取优先用户目录、再回退安装目录旧文件
+    from core import guga_paths
+    _PATH = str(guga_paths.RUNTIME / 'data' / 'match_history.json')
+except Exception:  # pragma: no cover
+    _PATH = os.path.join(os.environ.get('LOCALAPPDATA') or os.environ.get('APPDATA')
+                         or os.path.expanduser('~'), 'GUGA', 'runtime',
+                         'data', 'match_history.json')
 MAX_KEEP = 5
 
 _cache = None  # {'history': [...]} 内存缓存（首次读取后常驻）
@@ -20,10 +27,14 @@ _cache = None  # {'history': [...]} 内存缓存（首次读取后常驻）
 def _load():
     global _cache
     if _cache is None:
-        try:
-            with open(_PATH, 'r', encoding='utf-8') as f:
-                _cache = json.load(f)
-        except Exception:
+        for path in (_PATH, _LEGACY_PATH):
+            try:
+                with open(path, 'r', encoding='utf-8') as f:
+                    _cache = json.load(f)
+                break
+            except Exception:
+                continue
+        else:
             _cache = {'history': []}
     return _cache
 

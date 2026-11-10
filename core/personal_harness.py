@@ -9,6 +9,7 @@ import uuid
 from contextlib import contextmanager
 from pathlib import Path
 from core.agent_memory import safe_text
+from core import guga_paths
 
 ROOT = Path(__file__).resolve().parents[1]
 _RECOVERED=set()
@@ -16,7 +17,7 @@ _RECOVERED=set()
 
 class PersonalHarness:
     def __init__(self, path=None):
-        self.path = Path(path or ROOT/'runtime/personal-harness/tasks.sqlite3')
+        self.path = Path(path or guga_paths.RUNTIME/'personal-harness/tasks.sqlite3')
         self.path.parent.mkdir(parents=True, exist_ok=True)
         with self.connect() as db:
             db.executescript('''

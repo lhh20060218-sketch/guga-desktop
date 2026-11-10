@@ -86,5 +86,10 @@ def choose_task_route(prompt, image=False, backend='auto', workflow=None):
                     workflow_id=workflow.get('id'))
     if _is_code_task(prompt):
         return dict(executor='dsh', category='code', reason='涉及代码、项目或多文件工程')
+    from core.execution_contract import execution_steps, is_composite
+    steps=execution_steps(prompt)
+    if is_composite(prompt):
+        return dict(executor='local_agent', category='multi_step', steps=steps,
+                    reason='包含%d个有序动作，需要逐步执行并按结果调整' % steps)
     return dict(executor='local_agent', category='local_task',
                 reason='日常电脑操作由咕嘎直接执行，失败后再考虑升级')

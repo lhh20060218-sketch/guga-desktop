@@ -1,0 +1,44 @@
+{
+  "source": "butler_watching.mp4",
+  "action": "watching",
+  "playback": "loop",
+  "source_size": [
+    1080,
+    1920
+  ],
+  "target_size": [
+    458,
+    660
+  ],
+  "fps": 24,
+  "key_median": [
+    0.0,
+    252.0,
+    0.0
+  ],
+  "scale": 0.36916,
+  "span_raw": 1433.0,
+  "foot_raw": [
+    1681.0,
+    387.6
+  ],
+  "baseline": 620,
+  "frames": 86,
+  "key_drift": [
+    0.0,
+    0.0,
+    0.0
+  ],
+  "alpha_cov": 0.36,
+  "fringe_before": 0.05009,
+  "fringe_after": 0.0,
+  "loop_tail": {
+    "alpha": 0.0176,
+    "rgb": 13.86
+  },
+  "glow_protected": 36152,
+  "loop_seam_ok": true,
+  "tail_trimmed": 10,
+  "loop_seam_diff": 0.0111,
+  "edge_green_after": 0.0
+}

@@ -20,8 +20,11 @@ ST_BADGE = {
     'pending':  ('#8a93a6', '排队'),
     'running':  ('#3d8bff', '进行中'),
     'review':   ('#f5a623', '待验收'),
+    'returned': ('#f5a623', '返工待重派'),
     'done':     ('#37c26e', '已完成'),
-    'failed':   ('#ff5b5b', '异常'),
+    'error':    ('#ff5b5b', '失败'),
+    'failed':   ('#ff5b5b', '失败'),
+    'aborted':  ('#ff9f43', '已中止'),
     'paused':   ('#8a93a6', '暂停'),
 }
 
@@ -141,7 +144,9 @@ def _task_html(task):
     demo = ' <span style="color:#8a93a6;">[演示剧本]</span>' if task.get('demo') else ''
     rows = []
     for st in (task.get('subtasks') or []):
-        c, w = ST_BADGE.get(st.get('status', 'pending'), ('#8a93a6', '?'))
+        raw = st.get('status', 'pending')
+        shown = 'aborted' if raw in ('error', 'failed', 'aborted') and _aborted(st) else raw
+        c, w = ST_BADGE.get(shown, ('#8a93a6', '?'))
         prog = int(st.get('progress') or 0)
         rows.append(
             '<tr>'
@@ -172,16 +177,26 @@ def _task_html(task):
                         ago=ago, n=len(task.get('subtasks') or []), rows=''.join(rows)))
 
 
+def _aborted(sub):
+    """用户中止：服务端可能只给 error+aborted 标记，备注前缀兜底。"""
+    sub = sub or {}
+    if sub.get('aborted'):
+        return True
+    note = str(sub.get('note') or sub.get('checkResult') or sub.get('feedback') or '')
+    return note.startswith(('已中止', '用户终止', 'Stopped', '中止'))
+
+
 def _overall(task):
     subs = task.get('subtasks') or []
     sts = [s.get('status', 'pending') for s in subs]
     if not sts:
         return 'pending'
-    if any(s == 'failed' for s in sts):
-        return 'failed'
+    bad = [s for s in subs if s.get('status') in ('error', 'failed', 'aborted')]
+    if bad:
+        return 'aborted' if all(_aborted(s) for s in bad) else 'error'
     if all(s == 'done' for s in sts):
         return 'done'
-    if any(s == 'review' for s in sts):
+    if any(s in ('review', 'returned') for s in sts):
         return 'review'
     if any(s == 'running' for s in sts):
         return 'running'

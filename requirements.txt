@@ -1,16 +1,41 @@
+# 咕嘎桌宠 · 源码运行依赖
+# 适用：Windows 10 1809+ / Windows 11 x64，Python 3.10+（推荐 3.12）
+#
+# 只用发行包（Release 里的 GUGA-Desktop-win64.zip）不需要装这些；
+# 只有从源码运行 python comp_main.py / launcher.py 时才需要。
+
+# 界面与基础
 PyQt5>=5.15
-av>=14
-PyOpenGL>=3.1.7
-Pillow>=10
-pywin32>=300
-edge-tts>=7.3.0
 requests>=2.28
 psutil>=5.9
-sounddevice>=0.5
-vosk>=0.3
-pythonnet>=3.0
-websocket-client>=1.8
+Pillow>=10
 numpy>=1.20
+
+# Windows 系统能力（键鼠 / 剪贴板 / 窗口 / 进程 / 注册表）
+pywin32>=300
+pyautogui>=0.9.54
+pygetwindow>=0.0.9
+pyperclip>=1.8
+
+# 语音（按住说话 / 持续语音对话）
+sounddevice>=0.5
+edge-tts>=7.3.0
+websocket-client>=1.8
+vosk>=0.3
+
+# 本地文档与视频兜底（PPT / 字幕 / 合成）
+python-pptx>=0.6.21
+imageio-ffmpeg>=0.4.9
+
+# 任务总线 MCP（软件作为 Client 接入咕嘎 MCP Server 时需要）
+mcp>=1.0
+
+# 离线声纹与 UI 自动化（缺失时对应能力自动降级，不影响启动）
+pythonnet>=3.0
 onnxruntime>=1.20
 kaldi-native-fbank>=1.22.4
+
+# 可选能力（用到才需要；不装不影响桌宠启动与派单）
+av>=14
+PyOpenGL>=3.1.7
 playwright>=1.49

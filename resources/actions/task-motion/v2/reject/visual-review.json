@@ -1,0 +1,35 @@
+{
+  "schema": 2,
+  "status": "approved",
+  "reviewer": "WorkBuddy(dz3 v2 批量验收 2026-11-07)",
+  "playback": "once",
+  "frames_sha256": "6e979de3b8b9cd409f6f7867dcd05f13a3f55937bfa258441d2da4e6569d5709",
+  "checks": {
+    "continuous_motion": true,
+    "no_ghosts": true,
+    "anatomy": true,
+    "identity": true,
+    "loop_seam": false,
+    "entry_exit_transition": true
+  },
+  "user_approval": {
+    "by": "user",
+    "quote": "可以，像dsh-pet的一样形象做小一点，边边的参差不齐的效果就能减小"
+  },
+  "canvas": [
+    458,
+    660
+  ],
+  "native_fps": 24,
+  "frames": 98,
+  "scale": 0.34468,
+  "loop_tail": {
+    "alpha": 0.0043,
+    "rgb": 4.55
+  },
+  "loop_seam_diff": null,
+  "tail_trimmed": 0,
+  "glow_protected": 0,
+  "source": "butler_reject.mp4",
+  "basis": "源分辨率自适应键色 + despill + 预乘 alpha Lanczos 降采样到 458x660；统一脚底基线 620；循环片段自动 seam 裁剪。"
+}

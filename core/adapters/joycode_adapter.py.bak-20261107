@@ -1,0 +1,209 @@
+"""JoyCode 适配器：咕嘎派单 → 唤起 JoyCode IDE → 轮询回执 → 回送咕嘎状态机。
+
+边界（重要）：
+- JoyCode 只开放「被扩展」，没有可 headless 运行 Agent 的 REST/CLI，所以这里只能
+  写任务、唤起 IDE、等待人在/Agent 在 IDE 里执行后写回回执，不存在反向调用。
+- 本文件不导入形象渲染、动画、窗口动效，也不改调度核心；只做文件协议和进程唤起。
+- 全自动 UI 自动化（pywinauto 等）暂不实现，仅保留 `ui_automation` 开关位。
+
+任务协议：{task_id, goal, acceptance, deadline, callback}
+回执协议：{task_id, status, artifact_paths, self_check}
+
+典型用法：
+    adapter = JoyCodeAdapter(journal=agent.journal)
+    task = adapter.dispatch('整理验收清单', '清单包含 3 条可核对项')
+    receipt = adapter.wait_for_result(task['task_id'], timeout=1800)
+
+    # 或交给后台线程：
+    adapter.dispatch(..., wait=True, on_result=lambda receipt: print(receipt))
+"""
+from __future__ import annotations
+
+import json
+import os
+import re
+import shutil
+import subprocess
+import threading
+import time
+import uuid
+from pathlib import Path
+
+TASK_ID = re.compile(r'[A-Za-z0-9._-]{1,80}')
+RECEIPT_STATUS = ('done', 'blocked', 'failed')
+# 回执状态 → 咕嘎 TaskJournal 的状态
+STATE_MAP = {'done': 'completed', 'blocked': 'paused', 'failed': 'paused'}
+
+
+def _workspace_root(explicit=None):
+    if explicit:
+        return Path(explicit).expanduser().resolve()
+    override = os.environ.get('GUGA_WORKSPACE', '').strip()
+    if override:
+        return Path(override).expanduser().resolve()
+    here = Path(__file__).resolve()
+    for parent in here.parents[:6]:
+        if (parent / '.joycode').is_dir() or (parent / '.guga').is_dir():
+            return parent
+    return here.parents[3]
+
+
+def _write_json(path, value):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix('.tmp')
+    temporary.write_text(json.dumps(value, ensure_ascii=False, indent=2), encoding='utf-8')
+    temporary.replace(path)
+
+
+class JoyCodeAdapter:
+    def __init__(self, workspace=None, launcher=None, journal=None, on_result=None,
+                 launch=True, poll_interval=1.0, ui_automation=False):
+        self.workspace = _workspace_root(workspace)
+        self.inbox = self.workspace / '.guga' / 'inbox'
+        self.outbox = self.workspace / '.guga' / 'outbox'
+        self.inbox.mkdir(parents=True, exist_ok=True)
+        self.outbox.mkdir(parents=True, exist_ok=True)
+        self.launcher = launcher or os.environ.get('GUGA_JOYCODE_LAUNCHER') or self._default_launcher()
+        self.journal = journal
+        self.on_result = on_result
+        self.launch = launch
+        self.poll_interval = max(.2, float(poll_interval))
+        # 全自动 UI 自动化开关位：保持关闭。未来接入 pywinauto 时只在这里分叉，
+        # 不改变文件协议和轮询逻辑。
+        self.ui_automation = bool(ui_automation)
+        self._handled = set()
+        self._lock = threading.Lock()
+
+    # ---- 派单 ----
+    def create_task(self, goal, acceptance, deadline='', callback='guga:desk', task_id=None):
+        key = task_id or ('T-' + time.strftime('%Y%m%d-%H%M%S') + '-' + uuid.uuid4().hex[:6])
+        if not TASK_ID.fullmatch(key):
+            raise ValueError('task_id 只允许字母、数字、点、下划线和连字符，长度 1-80')
+        if not str(goal or '').strip():
+            raise ValueError('goal 不能为空')
+        if not str(acceptance or '').strip():
+            raise ValueError('acceptance 不能为空')
+        task = dict(task_id=key, goal=str(goal), acceptance=str(acceptance),
+                    deadline=str(deadline or ''), callback=str(callback or 'guga:desk'))
+        _write_json(self.inbox / (key + '.json'), task)
+        return task
+
+    def dispatch(self, goal, acceptance, deadline='', callback='guga:desk', task_id=None,
+                 wait=False, timeout=1800, on_result=None):
+        """写任务文件；默认随即唤起 JoyCode IDE。wait=True 时阻塞等回执。"""
+        task = self.create_task(goal, acceptance, deadline, callback, task_id)
+        if self.launch:
+            self.open_ide()
+        if wait:
+            receipt = self.wait_for_result(task['task_id'], timeout=timeout)
+            if receipt and (on_result or self.on_result):
+                (on_result or self.on_result)(receipt)
+            return task, receipt
+        return task
+
+    def open_ide(self, project=None):
+        target = Path(project or self.workspace)
+        if not target.exists():
+            raise FileNotFoundError('工程路径不存在：' + str(target))
+        command = self.launcher
+        if not command:
+            raise RuntimeError('找不到 JoyCode 启动器，请设置 GUGA_JOYCODE_LAUNCHER')
+        if os.name == 'nt' and command.lower().endswith(('.cmd', '.bat')):
+            # 批处理启动器必须经 cmd.exe 执行；不需要等待 IDE 退出。
+            subprocess.Popen(['cmd.exe', '/c', command, str(target)],
+                             creationflags=subprocess.CREATE_NO_WINDOW)
+        else:
+            subprocess.Popen([command, str(target)])
+        return str(target)
+
+    # ---- 收单 ----
+    def poll(self, mark_handled=True):
+        """扫描 outbox，返回尚未处理过的回执（按文件名排序）。"""
+        results = []
+        if not self.outbox.is_dir():
+            return results
+        for path in sorted(self.outbox.glob('*.json')):
+            if path.name.endswith('.progress.json'):
+                continue
+            try:
+                receipt = json.loads(path.read_text(encoding='utf-8-sig'))
+            except (OSError, ValueError):
+                continue
+            if not isinstance(receipt, dict) or not receipt.get('task_id'):
+                continue
+            receipt['task_id'] = str(receipt['task_id'])
+            if receipt.get('status') not in RECEIPT_STATUS:
+                continue
+            if receipt['task_id'] in self._handled:
+                continue
+            if mark_handled:
+                with self._lock:
+                    self._handled.add(receipt['task_id'])
+            self._handoff(receipt)
+            results.append(receipt)
+        return results
+
+    def wait_for_result(self, task_id, timeout=1800, cancel=None):
+        """轮询直到该任务出现回执；超时返回 None，不抛出。"""
+        deadline = time.monotonic() + max(0, float(timeout))
+        while time.monotonic() < deadline:
+            if cancel is not None and cancel.is_set():
+                return None
+            with self._lock:
+                path = self.outbox / (task_id + '.json')
+            if path.is_file():
+                try:
+                    receipt = json.loads(path.read_text(encoding='utf-8-sig'))
+                except (OSError, ValueError):
+                    time.sleep(self.poll_interval)
+                    continue
+                if isinstance(receipt, dict) and receipt.get('status') in RECEIPT_STATUS:
+                    with self._lock:
+                        first = receipt['task_id'] not in self._handled
+                        self._handled.add(receipt['task_id'])
+                    if first:
+                        self._handoff(receipt)
+                    return receipt
+            time.sleep(self.poll_interval)
+        return None
+
+    def pending_tasks(self):
+        if not self.inbox.is_dir():
+            return []
+        paths = sorted((p for p in self.inbox.glob('*.json') if p.is_file()),
+                       key=lambda p: (p.stat().st_mtime, p.name))
+        return [p.stem for p in paths if not (self.outbox / (p.stem + '.json')).exists()]
+
+    # ---- 回送状态机 ----
+    def _handoff(self, receipt):
+        state = STATE_MAP.get(receipt.get('status'), 'paused')
+        summary = str(receipt.get('self_check') or '')[:2000]
+        artifacts = [str(item) for item in (receipt.get('artifact_paths') or [])]
+        journal = self.journal
+        if journal is not None and getattr(journal, 'data', {}).get('id'):
+            journal.update(status=state, summary='JoyCode 回执：' + summary,
+                           plan=['任务 {0} 已完成'.format(receipt.get('task_id'))
+                                 if state == 'completed' else
+                                 '任务 {0} 未完成，等待处理'.format(receipt.get('task_id'))],
+                           artifacts=artifacts, joycode_receipt=receipt)
+            journal.event('joycode', {'ok': state == 'completed'})
+        if self.on_result:
+            self.on_result(receipt, state)
+
+    # ---- 小工具 ----
+    def _default_launcher(self):
+        # joycode.cmd 在本机会以 ELECTRON_RUN_AS_NODE 运行 cli.js 后直接退出，
+        # 实测无法拉起窗口；优先直接启动 JoyCode.exe。
+        for candidate in (Path(r'D:\JoyCode\JoyCode.exe'), Path(r'D:\JoyCode\bin\joycode.cmd')):
+            if candidate.is_file():
+                return str(candidate)
+        return shutil.which('joycode') or ''
+
+    def progress(self, task_id):
+        path = self.outbox / (task_id + '.progress.json')
+        if not path.is_file():
+            return None
+        try:
+            return json.loads(path.read_text(encoding='utf-8-sig'))
+        except (OSError, ValueError):
+            return None

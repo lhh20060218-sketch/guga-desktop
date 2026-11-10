@@ -11,11 +11,12 @@
 不发起真实网络请求.
 运行: python scripts/demo_m2_hub.py
 """
+import os
 import sys
 import time
 from pathlib import Path
 
-REPO = r'D:\rengongzhineng\heimao-zhuochong'
+REPO = os.environ.get('GUGA_DEMO_REPO') or str(Path(__file__).resolve().parents[1])
 sys.path.insert(0, REPO)
 
 SEP = '=' * 62

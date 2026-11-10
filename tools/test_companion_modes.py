@@ -78,7 +78,8 @@ class PresentationTests(unittest.TestCase):
 
 class AnswerTests(unittest.TestCase):
     def run_answer(self,receipt):
-        worker=AnswerWorker(config=dict(api_key='offline',base_url='https://example.com/v1'))
+        worker=AnswerWorker(config=dict(api_key='offline',
+                                       base_url='https://example.com/v1',model='offline'))
         results=[];drafts=[];worker.completed.connect(results.append)
         worker.partial.connect(lambda _,__,t:drafts.append(t))
         response=MagicMock(status_code=200)
@@ -115,11 +116,16 @@ class InitiativeTests(unittest.TestCase):
         self.panel=SimpleNamespace(memory=self.memory,pet=None,busy=False,voice_active=False,active_id='a',
             active_agent_id='001',active_profile=self.memory.profile('001'),_last_user_activity=0,
             runtime=SimpleNamespace(music=SimpleNamespace(playing=False),dsh=SimpleNamespace(status=lambda:dict(running=False))))
-        self.p=ProactiveConversation(self.panel,self.memory);self.p.started_at=0
+        self.p=ProactiveConversation(self.panel,self.memory,interval_seconds=1);self.p.started_at=0
     def tearDown(self):self.p.stop();self.temp.cleanup()
 
-    def test_default_is_ten_seconds_and_busy_defers(self):
-        self.assertEqual(self.p.interval_seconds,10);self.assertEqual(self.p.cooldown_seconds,10)
+    def test_default_interval_is_four_to_six_hours_and_busy_defers(self):
+        default=ProactiveConversation(self.panel,self.memory)
+        self.addCleanup(default.stop)
+        self.assertEqual(default.idle_min_seconds,4*3600);self.assertEqual(default.idle_max_seconds,6*3600)
+        samples=[default._roll_interval() for _ in range(5)]
+        for value in samples:self.assertGreaterEqual(value,4*3600);self.assertLessEqual(value,6*3600)
+        self.assertFalse(all(abs(a-b)<1e-9 for a,b in zip(samples,samples[1:])))
         self.panel.busy=True
         with patch.object(self.p,'_compose_offline') as compose:
             self.assertIsNone(self.p.tick());compose.assert_not_called()
@@ -213,7 +219,8 @@ class IsolationTests(unittest.TestCase):
         panel=SimpleNamespace(_dialogue_context=dict(conversation_id='chat',agent_id='001',profile={},voice=voice,call_id='qa',read_aloud=False),
             dialogue=SimpleNamespace(generation=4),store=MagicMock(),memory=MagicMock(),voice=voice,voice_active=True,
             active_id='chat',active_agent_id='001',busy=True,_run_kind='dsh',_dsh_reports=reports,
-            _show_active_bubble=MagicMock(),render=MagicMock(),_voice_readback=False)
+            _show_active_bubble=MagicMock(),render=MagicMock(),_voice_readback=False,_deliver_turn=MagicMock(return_value=None),
+            _bubble_text=lambda text,delivery=None:text)
         AgentChatWindow._dialogue_completed(panel,dict(generation=4,ok=True,text='回答正文\n参考来源：\nhttps://example.com'))
         self.assertTrue(panel.busy);self.assertEqual(panel._run_kind,'dsh');self.assertIs(panel._dsh_reports,reports)
         voice.resolve_task.assert_called_once()

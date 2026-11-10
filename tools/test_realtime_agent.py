@@ -254,6 +254,24 @@ class RealtimeAgentTests(unittest.TestCase):
         self.assertEqual(len(cancelled), 2)
         self.assertFalse(engine._tasks)
 
+    def test_delegated_task_ack_reaches_qwen_after_late_asr(self):
+        engine=self.engine();calls=[]
+        engine.task_requested.connect(lambda *args:calls.append(args))
+        request='帮我读取当前记事本窗口的标题'
+        engine._handle_event(dict(type='response.function_call_arguments.done',response_id='r1',call_id='c1',
+            name='ask_deepseek',arguments=json.dumps({'request':request})))
+        self.assertFalse(calls, 'FC alone must wait for the verbatim transcript or its deadline')
+        engine._handle_event(dict(type='conversation.item.input_audio_transcription.completed',transcript=request))
+        self.assertEqual(calls,[('c1',request)])
+        engine.resolve_task('c1',dict(ok=True,answer='收到，我现在开始处理。',execution_pending=True))
+        with patch.object(engine,'_send') as send:
+            while not engine._commands.empty():engine._process_command(engine._commands.get_nowait())
+            packet=send.call_args_list[0].args[0]
+            self.assertEqual(packet['item']['call_id'],'c1')
+            ack=json.loads(packet['item']['output'])
+            self.assertTrue(ack['execution_pending'])
+            self.assertIn('开始处理',ack['answer'])
+
     def test_stop_blocks_new_requests_and_late_results(self):
         engine = self.engine()
         engine.stop()

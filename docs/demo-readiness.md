@@ -31,3 +31,52 @@
 音频文件、音色参考、模型文件与本地账户配置留在忽略目录，不随源码提交。
 
 完整翻唱已成功生成并在新版桌宠实际播放；playing=true 时 sunglasses/dancing=true，暂停及停止后均恢复 false。已生成 runtime/music/qingtian-preview.mp3 供试听。
+
+## 现场前提（2026-11-08 定稿，桌面软件派单必读）
+
+这两条不是代码缺陷，是现场必须遵守的使用约束；违反时咕嘎会明确失败，不会交假结果。
+
+### 1. JoyCode 需要先手动打开右侧 AI 面板
+
+- JoyCode 冷启动时右侧面板是关闭的，`ensure_panel()` 只读、不会自动按 `Ctrl+Alt+B`
+  （那个键是开关，误判会把已开的面板按关）。
+- 演示前人工打开一次：`Ctrl+Shift+P` → “查看: 切换辅助侧栏可见性”，
+  确认右栏出现“JoyCode / 代码洪流，一念即成”和输入框。
+- 面板没开时派单返回 `input_not_found`，提示“看不到 JoyCode 对话面板或输入框”，
+  不会盲点、不会把命令打进编辑器。
+- 细节与实测记录见 `JOYCODE-GUGA.md` 的“2026-11-08 定稿”一节。
+
+### 2. 同一时刻只能有一个咕嘎实例驱动同一个软件窗口
+
+- WorkBuddy / JoyCode / 豆包这类窗口是单实例共享的：前台焦点、输入框内容、
+  当前会话都只有一份。两个实例（或另一个会话/打包版）同时驱动同一个窗口时，
+  会出现“我发出去的问题被别人的会话顶掉”“整页复制抓到别人的问答”。
+- 现在的能力边界：WorkBuddy 桥在抓正文前会校验页面里有没有本次提问，
+  看不到就返回 `page_mismatch`（提示“当前显示的是另一个会话”），**拒绝交付**；
+  JoyCode 侧被抢焦点时会返回 `input_text_mismatch` / `foreground_busy`，
+  由输入闸拦下，不会把命令打进编辑器。
+- 现场做法：演示前关掉或停用其它咕嘎实例（含打包版 `GUGA-Desktop.exe --guga-mcp`、
+  其它自动化会话），一个窗口只留一个驱动方；失败码出现时先看是不是有人同时在操作。
+
+### 3. JoyCode 工作区自动识别（打包版同样生效）
+
+- 派单前会读 JoyCode 自己的记录确认**当前打开的工程**，优先级：
+  1. `%APPDATA%\JoyCode\User\globalStorage\storage.json` 的
+     `windowsState.lastActiveWindow.folder`；
+  2. `state.vscdb` 的 `history.recentlyOpenedPathsList`；
+  3. `workspaceStorage/*/workspace.json`（按最近修改）；
+  4. 再用窗口标题（如 `index.html - rengongzhineng - JoyCode`）在候选中二次确认。
+- 识别结果会写进结果与证据的 `workspace` / `workspace_source` 字段，现场可直接核对。
+- 都识别不到时**不会**写到默认目录，而是弹出“请选择 JoyCode 当前工程”选择框
+  （默认指向上次派过单的工程，记录在 `%GUGA_HOME%\runtime\joycode_workspace.json`，
+  含 `path` 与 `source`）；取消则明确提示“没找到 JoyCode 当前工程，请选择”，
+  不再出现因我们写错位置导致的“任务不存在”。
+- `GUGA_WORKSPACE` 仍可作为覆盖项，但演示不需要设置。
+
+### 4. 点名豆包会自动拉起
+
+- 豆包没在运行时，适配器会先启动已安装的 `Doubao.exe`，再用 `doubaoapp://chat`
+  唤起窗口；已有窗口只复用，不重复拉起。
+- 没装豆包：明确提示去安装（`not_installed`，附下载地址），不会空等启动超时。
+- 装了但打不开：返回 `launch_failed`，提示手动启动一次，确认能打开并登录后再派。
+

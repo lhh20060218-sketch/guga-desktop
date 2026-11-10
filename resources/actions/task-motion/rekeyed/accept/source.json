@@ -1,0 +1,17 @@
+{
+  "action": "accept",
+  "frames": 98,
+  "canvas": [
+    458,
+    660
+  ],
+  "baseline": 620,
+  "body_height": 537.0,
+  "scale": 0.9405,
+  "offset": [
+    51,
+    27
+  ],
+  "matte": "border-key + GrabCut + unpremultiply",
+  "from_legacy": "resources\\actions\\task-motion\\accept\\frames"
+}
