@@ -40,7 +40,7 @@ from core import guga_paths
 # 与云端 server.js 的 LOCAL_APPS 词表对齐(桌宠本地一份, 离线也能判):
 # 用户话里出现目标软件 = 要咕嘎指挥那个软件干活, 绝不能让咕嘎自己的 API 代写冒充.
 _DEVICE_APPS_RE = re.compile(
-    r'豆包|doubao|元宝|智谱|清言|deepseek|deep seek|记事本|notepad|计算器|'
+    r'豆包|doubao|deepseek|deep seek|记事本|notepad|计算器|'
     r'浏览器|chrome|edge|wps|word|excel|ppt|剪映|飞书|钉钉|腾讯会议|workbuddy|'
     r'wrokbuddy|wrorkbuddy|work\s*buddy|画图|修图',
     re.I)

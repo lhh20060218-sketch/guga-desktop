@@ -965,7 +965,7 @@ const KB7_DIR_CANDIDATES = [
   path.join(__dirname, '..', 'knowledge', 'flows'),    // 仓库结构：knowledge 在仓库根
 ];
 const KB7_DIR = KB7_DIR_CANDIDATES.find(d => { try { return fs.existsSync(d); } catch { return false; } }) || KB7_DIR_CANDIDATES[0];
-const KB7_SLUGS = { '豆包': 'doubao', '元宝': 'yuanbao', '智谱': 'zhipu', '清言': 'zhipu', '剪映': 'jianying' };  // Kimi 已移出适配名单（付费门槛）
+const KB7_SLUGS = { '豆包': 'doubao', '剪映': 'jianying' };
 const KB7_IO_CACHE = new Map();   // slug -> { text, mtime }
 function kb7IoText(slug) {
   const file = path.join(KB7_DIR, slug + '-io.md');
@@ -1337,9 +1337,7 @@ const APP_PROFILES = [
   { name: '飞书',      re: /飞书|feishu|lark/i },
   { name: '钉钉',      re: /钉钉|dingtalk/i },
   { name: '腾讯会议',  re: /腾讯会议|wemeet|voov/i },
-  { name: '腾讯元宝',  re: /腾讯元宝|元宝|yuanbao|混元|hunyuan/i },
   { name: 'DeepSeek',  re: /deep\s?seek/i, latin: 'deepseek' },
-  { name: '智谱清言',  re: /清言|chatglm|智谱/i },
 ];
 
 function _lev(a, b) {   // 小型编辑距离（词长 ≤12，O(nm) 足够）
@@ -1411,7 +1409,7 @@ async function dispatchGoal(userId, goal, space, useLocal, confirmed = false, fr
   if (isPrivacyGoal(goal)) {
     throw new Error(`咕嘎不接管「${PRIVACY_APPS_TXT}」这类个人通信软件——读屏式自动化必须截取整个窗口画面，`
       + `您聊天里的私人消息、群文件、转账记录会被一并读走，这既不安全也不体面。`
-      + `跨应用搬文件不必经过聊天窗口：告诉我要哪个文件、交给哪个 AI 软件（豆包 / 元宝 / 智谱清言），我走文件通道处理。`);
+      + `跨应用搬文件不必经过聊天窗口：告诉我要哪个文件、交给哪个 AI 软件（豆包 / WorkBuddy / JoyCode），我走文件通道处理。`);
   }
   let useLocalNow = !!useLocal;
   let autoLocal = false;
